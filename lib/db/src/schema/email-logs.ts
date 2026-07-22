@@ -13,6 +13,7 @@ export const emailLogsTable = pgTable("email_logs", {
   recipientEmail: text("recipient_email").notNull(),
   status: emailStatusEnum("status").notNull().default("queued"),
   sentAt: timestamp("sent_at", { withTimezone: true }),
+  messageId: text("message_id"),
   errorMessage: text("error_message"),
 });
 

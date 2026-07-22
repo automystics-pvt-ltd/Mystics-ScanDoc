@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import { eq } from "drizzle-orm";
 import { db, settingsTable, auditLogsTable } from "@workspace/db";
 import { requireAuth, requireAdmin } from "../middlewares/auth";
+import { sendTestEmail } from "../lib/email";
 
 const router: IRouter = Router();
 
@@ -51,6 +52,31 @@ router.put("/admin/settings", requireAuth, requireAdmin, async (req, res): Promi
   });
 
   res.json(updated);
+});
+
+// POST /admin/test-email — send a test email via Resend
+router.post("/admin/test-email", requireAuth, requireAdmin, async (req, res): Promise<void> => {
+  const { to } = req.body;
+  if (!to || typeof to !== "string") {
+    res.status(400).json({ error: "Recipient email address required" });
+    return;
+  }
+
+  const result = await sendTestEmail(to);
+
+  if (!result.success) {
+    res.status(502).json({ error: result.error ?? "Failed to send test email" });
+    return;
+  }
+
+  await db.insert(auditLogsTable).values({
+    action: "test_email_sent",
+    userId: req.user!.id,
+    details: `Sent test email to ${to}`,
+    ipAddress: req.ip,
+  });
+
+  res.json({ success: true, messageId: result.messageId });
 });
 
 export default router;

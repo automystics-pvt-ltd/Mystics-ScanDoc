@@ -6,7 +6,7 @@ import { eq, desc, isNull } from "drizzle-orm";
 import { db, documentsTable, emailLogsTable, recipientsTable, settingsTable, auditLogsTable } from "@workspace/db";
 import { requireAuth } from "../middlewares/auth";
 import { logger } from "../lib/logger";
-import nodemailer from "nodemailer";
+import { sendEmail } from "../lib/email";
 
 const router: IRouter = Router();
 
@@ -157,52 +157,42 @@ router.post("/documents/:id/send", requireAuth, async (req, res): Promise<void> 
     })
   );
 
-  // Attempt actual email sending if SMTP is configured
+  // Attempt actual email sending via Resend
   type LogEntry = (typeof logEntries)[number];
   const sendResults: LogEntry[] = [];
+
+  // Determine the "from" address: use smtpUser if set, else the Resend onboarding address
+  const fromAddress = settings?.smtpUser
+    ? `DocScan <${settings.smtpUser}>`
+    : "DocScan <onboarding@resend.dev>";
 
   for (const entry of logEntries) {
     let sent = false;
     let errorMsg: string | undefined;
+    let messageId: string | undefined;
 
-    if (settings?.smtpHost && settings?.smtpUser) {
-      try {
-        const transporter = nodemailer.createTransport({
-          host: settings.smtpHost,
-          port: settings.smtpPort ?? 587,
-          secure: (settings.smtpPort ?? 587) === 465,
-          auth: {
-            user: settings.smtpUser,
-            pass: settings.smtpPass ?? "",
-          },
-        });
+    const result = await sendEmail({
+      from: fromAddress,
+      to: entry.recipientEmail,
+      subject: `Document: ${doc.fileName}`,
+      text: `${req.user!.name} has sent you a document: ${doc.fileName}`,
+      attachmentPath: doc.filePath,
+      attachmentName: doc.fileName,
+    });
 
-        const attachment = fs.existsSync(doc.filePath)
-          ? [{ filename: doc.fileName, path: doc.filePath }]
-          : [];
+    sent = result.success;
+    messageId = result.messageId;
+    errorMsg = result.error;
 
-        await transporter.sendMail({
-          from: settings.smtpUser,
-          to: entry.recipientEmail,
-          subject: `Document: ${doc.fileName}`,
-          text: `${req.user!.name} has sent you a document: ${doc.fileName}`,
-          attachments: attachment,
-        });
-
-        sent = true;
-      } catch (err: any) {
-        errorMsg = err?.message ?? "Failed to send email";
-        req.log.error({ err }, "Failed to send email");
-      }
-    } else {
-      // SMTP not configured — mark as sent for demo purposes
-      sent = true;
+    if (!sent) {
+      req.log.error({ error: errorMsg }, "Failed to send email via Resend");
     }
 
     const [updated] = await db
       .update(emailLogsTable)
       .set({
         status: sent ? "sent" : "failed",
+        messageId: messageId ?? null,
         errorMessage: errorMsg ?? null,
       })
       .where(eq(emailLogsTable.id, entry.id))
