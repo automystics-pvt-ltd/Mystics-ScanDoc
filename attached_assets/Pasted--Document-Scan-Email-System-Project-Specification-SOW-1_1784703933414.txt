@@ -1,0 +1,135 @@
+# Document Scan & Email System — Project Specification (SOW)
+
+## 1. Project Overview
+A web application that lets logged-in users scan/upload a document, then send that scanned document as an email attachment to up to **5 recipient email addresses**. The system has two roles — **User** and **Admin** — with the Admin able to fully manage the platform (users, documents, email activity, settings).
+
+---
+
+## 2. User Roles & Permissions
+
+### 2.1 User
+- No self-registration — accounts are created only by Admin
+- Login (email + password issued by Admin)
+- Upload or scan a document (PDF/image)
+- Click "Send" — document is emailed automatically to the recipient address(es) admin has pre-configured (no manual entry by user)
+- View their own upload/send history
+
+### 2.2 Admin
+- Login (separate admin login screen or role-based redirect after login)
+- Create / manage all users (create account, activate/deactivate/delete/reset password)
+- Configure the recipient email address(es) documents get sent to (up to 5), globally or per-user
+- View all documents uploaded/scanned by any user
+- View all email send logs (who sent what, to which configured addresses, when, delivery status)
+- Configure system settings (SMTP/email provider credentials, max recipients, max file size, allowed file types)
+- Scanner & printer configuration features
+- Manage admin-only announcements or notices (optional)
+- Export reports (users list, activity log) — optional
+
+---
+
+## 3. Core Features
+
+| # | Feature | Notes |
+|---|---------|-------|
+| 1 | Authentication | Separate login flows for User and Admin; JWT or session-based auth |
+| 2 | Document Scan/Upload | Support camera capture (mobile web) + file upload (PDF, JPG, PNG) |
+| 3 | Document Storage | Store uploaded files in cloud/object storage (e.g., S3-compatible or local disk for MVP) |
+| 4 | Multi-recipient Email | User enters up to 5 email addresses; system validates and sends document as attachment |
+| 5 | Email Delivery Tracking | Log status per recipient: queued, sent, failed |
+| 6 | Admin Dashboard | Central panel to manage users, documents, email logs, settings |
+| 7 | Notifications | Optional: confirmation email/toast to sender once send completes |
+| 8 | Audit Trail | Every action (login, upload, send) timestamped and logged for admin visibility |
+
+---
+
+## 4. Suggested Tech Stack
+- **Frontend:** React (or plain HTML/JS if kept simple on Replit)
+- **Backend:** Node.js/Express (or Laravel/PHP if preferred — confirm with dev team)
+- **Database:** PostgreSQL / MySQL
+- **File Storage:** Local `/uploads` folder for MVP, or S3-compatible bucket for production
+- **Email Service:** SMTP relay (e.g., SendGrid, Mailgun, or plain SMTP credentials) for reliable multi-recipient delivery
+- **Auth:** JWT-based sessions with role field (`user` / `admin`)
+
+---
+
+## 5. Database Schema (Draft)
+
+**users**
+- id, name, email, password_hash, role (`user`/`admin`), status (active/inactive), created_at
+
+**documents**
+- id, user_id (FK), file_name, file_path, file_type, uploaded_at
+
+**email_logs**
+- id, document_id (FK), sender_id (FK), recipient_email, status (`queued`/`sent`/`failed`), sent_at, error_message (nullable)
+
+**settings** (admin-configurable)
+- id, smtp_host, smtp_port, smtp_user, smtp_pass, max_recipients (default 5), max_file_size_mb
+
+**recipient_config** (admin-managed — who receives sent documents)
+- id, user_id (FK, nullable = applies globally if null), recipient_email, created_at
+
+---
+
+## 6. API Endpoints (Draft)
+
+**Auth**
+- `POST /api/auth/login`
+- `POST /api/auth/logout`
+
+**User**
+- `POST /api/documents/upload` — upload/scan a document
+- `POST /api/documents/{id}/send` — send document to the admin-configured recipient(s), no address input needed
+- `GET /api/documents/history` — user's own send history
+
+**Admin**
+- `POST /api/admin/users` — create a new user account
+- `GET /api/admin/users` — list all users
+- `PATCH /api/admin/users/{id}` — activate/deactivate/reset password
+- `DELETE /api/admin/users/{id}`
+- `GET /api/admin/documents` — all documents across users
+- `GET /api/admin/email-logs` — all email send activity
+- `GET /api/admin/recipients` — list configured recipient addresses
+- `POST /api/admin/recipients` — add a recipient address (up to 5)
+- `DELETE /api/admin/recipients/{id}` — remove a recipient address
+- `PUT /api/admin/settings` — update SMTP/system settings
+
+---
+
+## 7. User Flow
+
+1. Admin has already created the user's login (user cannot self-register).
+2. User logs in.
+3. User scans or uploads a document.
+4. User clicks "Send" → backend automatically emails the document as an attachment to the recipient address(es) already configured by Admin — no manual entry required.
+5. System logs delivery status per recipient.
+6. User can view their own send history.
+
+## 8. Admin Flow
+
+1. Admin logs in via admin panel.
+2. Admin creates user accounts.
+3. Admin configures the recipient email address(es) — up to 5 — that documents get sent to.
+4. Admin views dashboard: total users, total documents, recent email activity.
+5. Admin can manage users, review any document, review any email log, and adjust system/SMTP settings.
+
+---
+
+## 9. Non-Functional Requirements
+- Max file size: configurable (e.g., 10MB default)
+- Allowed formats: PDF, JPG, PNG
+- Input validation on all 5 email fields (valid email format, no duplicates)
+- Role-based access control enforced on every admin route
+- Passwords hashed (bcrypt); no plaintext storage
+- Rate limiting on send endpoint to prevent abuse
+
+---
+
+## 10. Open Items / Assumptions to Confirm
+- [x] Users do not self-register — Admin creates all user accounts
+- [x] Recipient email addresses are pre-configured by Admin, not entered by the user
+- [ ] Are the 5 recipient addresses global (same for every user's sends) or configurable per-user?
+- [ ] Should scanning include OCR (text extraction) or is it just image/PDF capture + send?
+- [ ] Preferred backend: Node.js/Express or Laravel/PHP?
+- [ ] Preferred email provider (SendGrid/Mailgun/plain SMTP)?
+- [ ] Does "admin can manage everything" include editing/deleting other users' documents, or just viewing?

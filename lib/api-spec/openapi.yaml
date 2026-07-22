@@ -3,20 +3,36 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: DocScan — Document Scan & Email System API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: auth
+    description: Authentication
+  - name: documents
+    description: Document management
+  - name: admin-users
+    description: Admin user management
+  - name: admin-documents
+    description: Admin document management
+  - name: admin-email-logs
+    description: Admin email log management
+  - name: admin-recipients
+    description: Admin recipient configuration
+  - name: admin-settings
+    description: Admin system settings
+  - name: dashboard
+    description: Dashboard statistics
+
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,13 +40,671 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /auth/login:
+    post:
+      operationId: login
+      tags: [auth]
+      summary: Login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginInput"
+      responses:
+        "200":
+          description: Logged in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "401":
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/logout:
+    post:
+      operationId: logout
+      tags: [auth]
+      summary: Logout
+      responses:
+        "200":
+          description: Logged out
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /auth/me:
+    get:
+      operationId: getMe
+      tags: [auth]
+      summary: Get current user
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /documents/history:
+    get:
+      operationId: getDocumentHistory
+      tags: [documents]
+      summary: Get user document history
+      responses:
+        "200":
+          description: Document history
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DocumentWithLogs"
+
+  /documents/{id}/send:
+    post:
+      operationId: sendDocument
+      tags: [documents]
+      summary: Send document to configured recipients
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Document sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SendResult"
+        "404":
+          description: Document not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /admin/dashboard:
+    get:
+      operationId: getDashboardStats
+      tags: [dashboard]
+      summary: Get dashboard statistics
+      responses:
+        "200":
+          description: Dashboard statistics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardStats"
+
+  /admin/users:
+    get:
+      operationId: listUsers
+      tags: [admin-users]
+      summary: List all users
+      responses:
+        "200":
+          description: Users list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/User"
+    post:
+      operationId: createUser
+      tags: [admin-users]
+      summary: Create a new user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserInput"
+      responses:
+        "201":
+          description: User created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /admin/users/{id}:
+    patch:
+      operationId: updateUser
+      tags: [admin-users]
+      summary: Update user (activate/deactivate/reset password)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserUpdate"
+      responses:
+        "200":
+          description: User updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "404":
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: deleteUser
+      tags: [admin-users]
+      summary: Delete user
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: User deleted
+        "404":
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /admin/documents:
+    get:
+      operationId: listAllDocuments
+      tags: [admin-documents]
+      summary: List all documents across users
+      responses:
+        "200":
+          description: All documents
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DocumentWithUser"
+
+  /admin/documents/{id}:
+    delete:
+      operationId: deleteDocument
+      tags: [admin-documents]
+      summary: Delete a document
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Document deleted
+        "404":
+          description: Document not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /admin/email-logs:
+    get:
+      operationId: listEmailLogs
+      tags: [admin-email-logs]
+      summary: List all email send activity
+      responses:
+        "200":
+          description: Email logs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/EmailLog"
+
+  /admin/recipients:
+    get:
+      operationId: listRecipients
+      tags: [admin-recipients]
+      summary: List configured recipient addresses
+      responses:
+        "200":
+          description: Recipients list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Recipient"
+    post:
+      operationId: createRecipient
+      tags: [admin-recipients]
+      summary: Add a recipient address
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RecipientInput"
+      responses:
+        "201":
+          description: Recipient created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Recipient"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /admin/recipients/{id}:
+    delete:
+      operationId: deleteRecipient
+      tags: [admin-recipients]
+      summary: Remove a recipient address
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Recipient deleted
+        "404":
+          description: Recipient not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /admin/settings:
+    get:
+      operationId: getSettings
+      tags: [admin-settings]
+      summary: Get system settings
+      responses:
+        "200":
+          description: System settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Settings"
+    put:
+      operationId: updateSettings
+      tags: [admin-settings]
+      summary: Update system settings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SettingsInput"
+      responses:
+        "200":
+          description: Settings updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Settings"
+
+  /admin/audit-logs:
+    get:
+      operationId: listAuditLogs
+      tags: [dashboard]
+      summary: List audit logs
+      responses:
+        "200":
+          description: Audit logs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AuditLog"
+
 components:
   schemas:
     HealthStatus:
       type: object
+      required: [status]
       properties:
         status:
           type: string
-      required:
-        - status
 
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+
+    MessageResponse:
+      type: object
+      required: [message]
+      properties:
+        message:
+          type: string
+
+    LoginInput:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+        password:
+          type: string
+          minLength: 1
+
+    AuthResponse:
+      type: object
+      required: [token, user]
+      properties:
+        token:
+          type: string
+        user:
+          $ref: "#/components/schemas/User"
+
+    User:
+      type: object
+      required: [id, name, email, role, status, createdAt]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        email:
+          type: string
+        role:
+          type: string
+          enum: [user, admin]
+        status:
+          type: string
+          enum: [active, inactive]
+        createdAt:
+          type: string
+          format: date-time
+        documentCount:
+          type: ["integer", "null"]
+        lastActivity:
+          type: ["string", "null"]
+
+    UserInput:
+      type: object
+      required: [name, email, password, role]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        email:
+          type: string
+        password:
+          type: string
+          minLength: 6
+        role:
+          type: string
+          enum: [user, admin]
+
+    UserUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+        status:
+          type: string
+          enum: [active, inactive]
+        password:
+          type: string
+          minLength: 6
+        role:
+          type: string
+          enum: [user, admin]
+
+    Document:
+      type: object
+      required: [id, userId, fileName, fileType, uploadedAt]
+      properties:
+        id:
+          type: integer
+        userId:
+          type: integer
+        fileName:
+          type: string
+        filePath:
+          type: string
+        fileType:
+          type: string
+        fileSize:
+          type: ["integer", "null"]
+        uploadedAt:
+          type: string
+          format: date-time
+
+    DocumentWithLogs:
+      type: object
+      required: [id, userId, fileName, fileType, uploadedAt, emailLogs]
+      properties:
+        id:
+          type: integer
+        userId:
+          type: integer
+        fileName:
+          type: string
+        filePath:
+          type: string
+        fileType:
+          type: string
+        fileSize:
+          type: ["integer", "null"]
+        uploadedAt:
+          type: string
+          format: date-time
+        emailLogs:
+          type: array
+          items:
+            $ref: "#/components/schemas/EmailLog"
+
+    DocumentWithUser:
+      type: object
+      required: [id, userId, fileName, fileType, uploadedAt]
+      properties:
+        id:
+          type: integer
+        userId:
+          type: integer
+        fileName:
+          type: string
+        filePath:
+          type: string
+        fileType:
+          type: string
+        fileSize:
+          type: ["integer", "null"]
+        uploadedAt:
+          type: string
+          format: date-time
+        userName:
+          type: ["string", "null"]
+        userEmail:
+          type: ["string", "null"]
+        emailLogs:
+          type: array
+          items:
+            $ref: "#/components/schemas/EmailLog"
+
+    SendResult:
+      type: object
+      required: [success, logs]
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+        logs:
+          type: array
+          items:
+            $ref: "#/components/schemas/EmailLog"
+
+    EmailLog:
+      type: object
+      required: [id, documentId, senderId, recipientEmail, status, sentAt]
+      properties:
+        id:
+          type: integer
+        documentId:
+          type: integer
+        senderId:
+          type: integer
+        recipientEmail:
+          type: string
+        status:
+          type: string
+          enum: [queued, sent, failed]
+        sentAt:
+          type: ["string", "null"]
+        errorMessage:
+          type: ["string", "null"]
+        documentName:
+          type: ["string", "null"]
+        senderName:
+          type: ["string", "null"]
+
+    Recipient:
+      type: object
+      required: [id, recipientEmail, createdAt]
+      properties:
+        id:
+          type: integer
+        userId:
+          type: ["integer", "null"]
+        recipientEmail:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    RecipientInput:
+      type: object
+      required: [recipientEmail]
+      properties:
+        recipientEmail:
+          type: string
+        userId:
+          type: ["integer", "null"]
+
+    Settings:
+      type: object
+      required: [id, maxRecipients, maxFileSizeMb]
+      properties:
+        id:
+          type: integer
+        smtpHost:
+          type: ["string", "null"]
+        smtpPort:
+          type: ["integer", "null"]
+        smtpUser:
+          type: ["string", "null"]
+        smtpPass:
+          type: ["string", "null"]
+        maxRecipients:
+          type: integer
+        maxFileSizeMb:
+          type: integer
+        allowedFileTypes:
+          type: ["string", "null"]
+
+    SettingsInput:
+      type: object
+      properties:
+        smtpHost:
+          type: string
+        smtpPort:
+          type: integer
+        smtpUser:
+          type: string
+        smtpPass:
+          type: string
+        maxRecipients:
+          type: integer
+          minimum: 1
+          maximum: 5
+        maxFileSizeMb:
+          type: integer
+          minimum: 1
+        allowedFileTypes:
+          type: string
+
+    DashboardStats:
+      type: object
+      required: [totalUsers, activeUsers, totalDocuments, totalEmailsSent, failedEmails, recentActivity]
+      properties:
+        totalUsers:
+          type: integer
+        activeUsers:
+          type: integer
+        totalDocuments:
+          type: integer
+        totalEmailsSent:
+          type: integer
+        failedEmails:
+          type: integer
+        documentsToday:
+          type: integer
+        emailsToday:
+          type: integer
+        recentActivity:
+          type: array
+          items:
+            $ref: "#/components/schemas/AuditLog"
+
+    AuditLog:
+      type: object
+      required: [id, action, userId, createdAt]
+      properties:
+        id:
+          type: integer
+        action:
+          type: string
+        userId:
+          type: ["integer", "null"]
+        userName:
+          type: ["string", "null"]
+        details:
+          type: ["string", "null"]
+        ipAddress:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time

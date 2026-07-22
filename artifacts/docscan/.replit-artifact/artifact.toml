@@ -1,0 +1,27 @@
+kind = "web"
+previewPath = "/"
+title = "DocScan — Document Scan & Email System"
+version = "1.0.0"
+id = "artifacts/docscan"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 23025
+
+[services.development]
+run = "pnpm --filter @workspace/docscan run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/docscan", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/docscan/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "23025"
+BASE_PATH = "/"
