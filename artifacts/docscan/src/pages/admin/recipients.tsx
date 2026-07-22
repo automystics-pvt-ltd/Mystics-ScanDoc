@@ -116,7 +116,7 @@ export default function Recipients() {
   };
 
   return (
-    <div className="space-y-6 max-w-6xl mx-auto">
+    <div className="space-y-6 max-w-7xl mx-auto">
       <h1 className="text-2xl font-bold tracking-tight">Recipients</h1>
 
       <div className="bg-card border border-border rounded-lg shadow-sm flex flex-col">
