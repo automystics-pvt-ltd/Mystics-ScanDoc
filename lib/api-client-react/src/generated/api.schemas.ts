@@ -117,6 +117,7 @@ export const EmailLogStatus = {
   queued: 'queued',
   sent: 'sent',
   failed: 'failed',
+  retry_pending: 'retry_pending',
 } as const;
 
 export interface EmailLog {
@@ -129,6 +130,9 @@ export interface EmailLog {
   sentAt: string | null;
   /** @nullable */
   errorMessage?: string | null;
+  retryCount: number;
+  /** @nullable */
+  nextRetryAt?: string | null;
   /** @nullable */
   documentName?: string | null;
   /** @nullable */

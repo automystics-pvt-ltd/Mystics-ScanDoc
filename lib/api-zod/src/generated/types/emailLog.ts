@@ -17,6 +17,9 @@ export interface EmailLog {
   sentAt: string | null;
   /** @nullable */
   errorMessage?: string | null;
+  retryCount: number;
+  /** @nullable */
+  nextRetryAt?: string | null;
   /** @nullable */
   documentName?: string | null;
   /** @nullable */

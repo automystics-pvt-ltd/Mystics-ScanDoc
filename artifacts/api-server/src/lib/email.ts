@@ -70,6 +70,17 @@ export async function sendEmail(opts: SendEmailOptions): Promise<SendEmailResult
 }
 
 /**
+ * Resolve the "from" address to use for outbound emails.
+ * Prefers the configured smtpUser (verified sender domain); falls back to the
+ * Resend onboarding sandbox address for development/unconfigured environments.
+ */
+export function resolveFromAddress(smtpUser?: string | null): string {
+  return smtpUser
+    ? `DocScan <${smtpUser}>`
+    : "DocScan <onboarding@resend.dev>";
+}
+
+/**
  * Send a test email to verify the Resend integration is working.
  */
 export async function sendTestEmail(to: string): Promise<SendEmailResult> {

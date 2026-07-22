@@ -4,7 +4,7 @@ import { z } from "zod/v4";
 import { documentsTable } from "./documents";
 import { usersTable } from "./users";
 
-export const emailStatusEnum = pgEnum("email_status", ["queued", "sent", "failed"]);
+export const emailStatusEnum = pgEnum("email_status", ["queued", "sent", "failed", "retry_pending"]);
 
 export const emailLogsTable = pgTable("email_logs", {
   id: serial("id").primaryKey(),
@@ -15,6 +15,8 @@ export const emailLogsTable = pgTable("email_logs", {
   sentAt: timestamp("sent_at", { withTimezone: true }),
   messageId: text("message_id"),
   errorMessage: text("error_message"),
+  retryCount: integer("retry_count").notNull().default(0),
+  nextRetryAt: timestamp("next_retry_at", { withTimezone: true }),
 });
 
 export const insertEmailLogSchema = createInsertSchema(emailLogsTable).omit({ id: true });

@@ -6,7 +6,7 @@ import { eq, desc, isNull } from "drizzle-orm";
 import { db, documentsTable, emailLogsTable, recipientsTable, settingsTable, auditLogsTable } from "@workspace/db";
 import { requireAuth } from "../middlewares/auth";
 import { logger } from "../lib/logger";
-import { sendEmail } from "../lib/email";
+import { sendEmail, resolveFromAddress } from "../lib/email";
 
 const router: IRouter = Router();
 
@@ -161,10 +161,7 @@ router.post("/documents/:id/send", requireAuth, async (req, res): Promise<void> 
   type LogEntry = (typeof logEntries)[number];
   const sendResults: LogEntry[] = [];
 
-  // Determine the "from" address: use smtpUser if set, else the Resend onboarding address
-  const fromAddress = settings?.smtpUser
-    ? `DocScan <${settings.smtpUser}>`
-    : "DocScan <onboarding@resend.dev>";
+  const fromAddress = resolveFromAddress(settings?.smtpUser);
 
   for (const entry of logEntries) {
     let sent = false;
@@ -188,12 +185,20 @@ router.post("/documents/:id/send", requireAuth, async (req, res): Promise<void> 
       req.log.error({ error: errorMsg }, "Failed to send email via Resend");
     }
 
+    // On failure, schedule a retry rather than hard-failing immediately
+    const nextStatus = sent
+      ? "sent"
+      : "retry_pending";
+    const nextRetryAt = sent ? null : new Date(Date.now() + 60_000); // first retry in 1 min
+
     const [updated] = await db
       .update(emailLogsTable)
       .set({
-        status: sent ? "sent" : "failed",
+        status: nextStatus,
         messageId: messageId ?? null,
         errorMessage: errorMsg ?? null,
+        retryCount: sent ? 0 : 1,
+        nextRetryAt,
       })
       .where(eq(emailLogsTable.id, entry.id))
       .returning();

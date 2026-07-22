@@ -579,7 +579,7 @@ components:
 
     EmailLog:
       type: object
-      required: [id, documentId, senderId, recipientEmail, status, sentAt]
+      required: [id, documentId, senderId, recipientEmail, status, sentAt, retryCount]
       properties:
         id:
           type: integer
@@ -591,10 +591,15 @@ components:
           type: string
         status:
           type: string
-          enum: [queued, sent, failed]
+          enum: [queued, sent, failed, retry_pending]
         sentAt:
           type: ["string", "null"]
         errorMessage:
+          type: ["string", "null"]
+        retryCount:
+          type: integer
+          default: 0
+        nextRetryAt:
           type: ["string", "null"]
         documentName:
           type: ["string", "null"]

@@ -68,6 +68,8 @@ export const GetMeResponse = zod.object({
 /**
  * @summary Get user document history
  */
+export const getDocumentHistoryResponseEmailLogsItemRetryCountDefault = 0;
+
 export const GetDocumentHistoryResponseItem = zod.object({
   "id": zod.number(),
   "userId": zod.number(),
@@ -81,9 +83,11 @@ export const GetDocumentHistoryResponseItem = zod.object({
   "documentId": zod.number(),
   "senderId": zod.number(),
   "recipientEmail": zod.string(),
-  "status": zod.enum(['queued', 'sent', 'failed']),
+  "status": zod.enum(['queued', 'sent', 'failed', 'retry_pending']),
   "sentAt": zod.string().nullable(),
   "errorMessage": zod.string().nullish(),
+  "retryCount": zod.number().default(getDocumentHistoryResponseEmailLogsItemRetryCountDefault),
+  "nextRetryAt": zod.string().nullish(),
   "documentName": zod.string().nullish(),
   "senderName": zod.string().nullish()
 }))
@@ -98,6 +102,8 @@ export const SendDocumentParams = zod.object({
   "id": zod.coerce.number()
 })
 
+export const sendDocumentResponseLogsItemRetryCountDefault = 0;
+
 export const SendDocumentResponse = zod.object({
   "success": zod.boolean(),
   "message": zod.string().optional(),
@@ -106,9 +112,11 @@ export const SendDocumentResponse = zod.object({
   "documentId": zod.number(),
   "senderId": zod.number(),
   "recipientEmail": zod.string(),
-  "status": zod.enum(['queued', 'sent', 'failed']),
+  "status": zod.enum(['queued', 'sent', 'failed', 'retry_pending']),
   "sentAt": zod.string().nullable(),
   "errorMessage": zod.string().nullish(),
+  "retryCount": zod.number().default(sendDocumentResponseLogsItemRetryCountDefault),
+  "nextRetryAt": zod.string().nullish(),
   "documentName": zod.string().nullish(),
   "senderName": zod.string().nullish()
 }))
@@ -225,6 +233,8 @@ export const DeleteUserResponse = zod.void()
 /**
  * @summary List all documents across users
  */
+export const listAllDocumentsResponseEmailLogsItemRetryCountDefault = 0;
+
 export const ListAllDocumentsResponseItem = zod.object({
   "id": zod.number(),
   "userId": zod.number(),
@@ -240,9 +250,11 @@ export const ListAllDocumentsResponseItem = zod.object({
   "documentId": zod.number(),
   "senderId": zod.number(),
   "recipientEmail": zod.string(),
-  "status": zod.enum(['queued', 'sent', 'failed']),
+  "status": zod.enum(['queued', 'sent', 'failed', 'retry_pending']),
   "sentAt": zod.string().nullable(),
   "errorMessage": zod.string().nullish(),
+  "retryCount": zod.number().default(listAllDocumentsResponseEmailLogsItemRetryCountDefault),
+  "nextRetryAt": zod.string().nullish(),
   "documentName": zod.string().nullish(),
   "senderName": zod.string().nullish()
 })).optional()
@@ -263,14 +275,18 @@ export const DeleteDocumentResponse = zod.void()
 /**
  * @summary List all email send activity
  */
+export const listEmailLogsResponseRetryCountDefault = 0;
+
 export const ListEmailLogsResponseItem = zod.object({
   "id": zod.number(),
   "documentId": zod.number(),
   "senderId": zod.number(),
   "recipientEmail": zod.string(),
-  "status": zod.enum(['queued', 'sent', 'failed']),
+  "status": zod.enum(['queued', 'sent', 'failed', 'retry_pending']),
   "sentAt": zod.string().nullable(),
   "errorMessage": zod.string().nullish(),
+  "retryCount": zod.number().default(listEmailLogsResponseRetryCountDefault),
+  "nextRetryAt": zod.string().nullish(),
   "documentName": zod.string().nullish(),
   "senderName": zod.string().nullish()
 })

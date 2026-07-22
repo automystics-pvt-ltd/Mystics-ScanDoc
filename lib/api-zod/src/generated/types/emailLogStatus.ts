@@ -13,4 +13,5 @@ export const EmailLogStatus = {
   queued: 'queued',
   sent: 'sent',
   failed: 'failed',
+  retry_pending: 'retry_pending',
 } as const;

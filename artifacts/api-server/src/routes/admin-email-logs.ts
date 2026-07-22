@@ -16,6 +16,8 @@ router.get("/admin/email-logs", requireAuth, requireAdmin, async (_req, res): Pr
       status: emailLogsTable.status,
       sentAt: emailLogsTable.sentAt,
       errorMessage: emailLogsTable.errorMessage,
+      retryCount: emailLogsTable.retryCount,
+      nextRetryAt: emailLogsTable.nextRetryAt,
       documentName: documentsTable.fileName,
       senderName: usersTable.name,
     })
