@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useListAuditLogs } from '@workspace/api-client-react';
 import { format } from 'date-fns';
-import { ShieldAlert, RefreshCw, Filter } from 'lucide-react';
+import { ShieldAlert, RefreshCw, Filter, Terminal } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -27,32 +27,31 @@ import {
 } from '@/components/ui/tooltip';
 
 const ACTION_LABELS: Record<string, string> = {
-  user_login: 'Login',
-  login_failed: 'Failed Login',
-  user_logout: 'Logout',
-  user_created: 'User Created',
-  user_updated: 'User Updated',
-  user_deleted: 'User Deleted',
-  user_unlocked: 'Account Unlocked',
-  document_uploaded: 'Upload',
-  document_deleted: 'Doc Deleted',
-  email_sent: 'Email Sent',
-  email_failed: 'Email Failed',
+  user_login: 'AUTH_SUCCESS',
+  login_failed: 'AUTH_REJECT',
+  user_logout: 'SESSION_END',
+  user_created: 'USER_INIT',
+  user_updated: 'USER_PATCH',
+  user_deleted: 'USER_PURGE',
+  user_unlocked: 'LOCK_CLEAR',
+  document_uploaded: 'DOC_INGEST',
+  document_deleted: 'DOC_PURGE',
+  email_sent: 'NET_TX_OK',
+  email_failed: 'NET_TX_ERR',
 };
 
-/** Colour coding: security events are red/orange, normal events are neutral. */
 function rowClass(action: string): string {
-  if (action === 'login_failed') return 'bg-red-50 dark:bg-red-950/20';
-  if (action === 'user_unlocked') return 'bg-orange-50 dark:bg-orange-950/20';
-  return '';
+  if (action === 'login_failed') return 'bg-destructive/5 hover:bg-destructive/10';
+  if (action === 'user_unlocked') return 'bg-orange-500/5 hover:bg-orange-500/10';
+  return 'hover:bg-muted/20 transition-colors';
 }
 
 function ActionBadge({ action }: { action: string }) {
-  const label = ACTION_LABELS[action] ?? action;
+  const label = ACTION_LABELS[action] ?? action.toUpperCase();
 
   if (action === 'login_failed') {
     return (
-      <Badge variant="outline" className="gap-1 bg-red-100 text-red-800 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800 whitespace-nowrap">
+      <Badge variant="outline" className="gap-1.5 bg-destructive/10 text-destructive border-destructive/20 whitespace-nowrap font-mono text-[10px] tracking-widest px-2">
         <ShieldAlert className="w-3 h-3" />
         {label}
       </Badge>
@@ -60,26 +59,24 @@ function ActionBadge({ action }: { action: string }) {
   }
   if (action === 'user_unlocked') {
     return (
-      <Badge variant="outline" className="bg-orange-100 text-orange-800 border-orange-200 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-800 whitespace-nowrap">
+      <Badge variant="outline" className="bg-orange-500/10 text-orange-600 border-orange-500/20 whitespace-nowrap font-mono text-[10px] tracking-widest px-2">
         {label}
       </Badge>
     );
   }
   if (action === 'user_login') {
     return (
-      <Badge variant="outline" className="bg-green-100 text-green-800 border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-800 whitespace-nowrap">
+      <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/20 whitespace-nowrap font-mono text-[10px] tracking-widest px-2">
         {label}
       </Badge>
     );
   }
   return (
-    <Badge variant="secondary" className="whitespace-nowrap">
+    <Badge variant="outline" className="bg-muted text-muted-foreground border-border/60 whitespace-nowrap font-mono text-[10px] tracking-widest px-2">
       {label}
     </Badge>
   );
 }
-
-const ALL_ACTIONS = Object.keys(ACTION_LABELS);
 
 export default function AuditLogs() {
   const [actionFilter, setActionFilter] = useState<string>('all');
@@ -87,7 +84,6 @@ export default function AuditLogs() {
   const queryParams = actionFilter !== 'all' ? { action: actionFilter } : {};
   const { data: logs, isLoading, refetch, isFetching } = useListAuditLogs(queryParams);
 
-  // Auto-refresh every 15 s — live feed of new security events
   useEffect(() => {
     const id = setInterval(() => { refetch(); }, 15_000);
     return () => clearInterval(id);
@@ -103,68 +99,71 @@ export default function AuditLogs() {
       <div className="space-y-6">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Audit Log</h1>
-            <p className="text-muted-foreground mt-2">
-              System-wide security and activity events.
-              {securityEventCount > 0 && (
-                <span className="ml-2 text-red-600 dark:text-red-400 font-medium">
-                  {securityEventCount} failed login{securityEventCount !== 1 ? 's' : ''} in current view.
-                </span>
-              )}
+            <h1 className="text-3xl font-bold tracking-tight">Security Feed</h1>
+            <p className="text-muted-foreground mt-2 flex items-center gap-2">
+              <Terminal className="w-4 h-4" />
+              Raw telemetry and system access events.
             </p>
           </div>
-          <div className="flex items-center gap-2 flex-shrink-0">
-            <Filter className="w-4 h-4 text-muted-foreground" />
+          <div className="flex items-center gap-3 flex-shrink-0 bg-card p-2 rounded-lg border border-border shadow-sm">
+            {securityEventCount > 0 && (
+              <div className="flex items-center gap-1.5 px-3 py-1 bg-destructive/10 text-destructive rounded font-semibold text-sm border border-destructive/20 animate-pulse">
+                <ShieldAlert className="w-4 h-4" />
+                <span>{securityEventCount} Rejects</span>
+              </div>
+            )}
+            <div className="h-6 w-px bg-border/60 mx-1"></div>
+            <Filter className="w-4 h-4 text-muted-foreground ml-1" />
             <Select value={actionFilter} onValueChange={setActionFilter}>
-              <SelectTrigger className="w-44">
-                <SelectValue placeholder="All events" />
+              <SelectTrigger className="w-44 h-8 bg-transparent border-0 shadow-none font-medium">
+                <SelectValue placeholder="All Streams" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All events</SelectItem>
-                <SelectItem value="login_failed">Failed logins</SelectItem>
-                <SelectItem value="user_unlocked">Account unlocks</SelectItem>
-                <SelectItem value="user_login">Logins</SelectItem>
-                <SelectItem value="user_logout">Logouts</SelectItem>
-                <SelectItem value="user_created">User created</SelectItem>
-                <SelectItem value="user_updated">User updated</SelectItem>
-                <SelectItem value="user_deleted">User deleted</SelectItem>
+                <SelectItem value="all">All Streams</SelectItem>
+                <SelectItem value="login_failed">Auth Rejects</SelectItem>
+                <SelectItem value="user_unlocked">Lock Clears</SelectItem>
+                <SelectItem value="user_login">Auth Success</SelectItem>
+                <SelectItem value="document_uploaded">Ingestions</SelectItem>
               </SelectContent>
             </Select>
-            <Button variant="outline" size="icon" onClick={() => refetch()} disabled={isFetching}>
-              <RefreshCw className={`w-4 h-4 ${isFetching ? 'animate-spin' : ''}`} />
+            <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-muted" onClick={() => refetch()} disabled={isFetching}>
+              <RefreshCw className={`w-4 h-4 text-muted-foreground ${isFetching ? 'animate-spin' : ''}`} />
             </Button>
           </div>
         </div>
 
-        <div className="bg-card border rounded-xl shadow-sm overflow-hidden">
+        <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden">
           <Table>
-            <TableHeader>
+            <TableHeader className="bg-muted/30">
               <TableRow>
-                <TableHead className="w-40">Time</TableHead>
-                <TableHead className="w-36">Event</TableHead>
-                <TableHead>User</TableHead>
-                <TableHead>IP Address</TableHead>
-                <TableHead>Details</TableHead>
+                <TableHead className="w-[140px] font-semibold text-foreground">Timestamp</TableHead>
+                <TableHead className="w-[160px] font-semibold text-foreground">Directive</TableHead>
+                <TableHead className="font-semibold text-foreground">Principal</TableHead>
+                <TableHead className="font-semibold text-foreground">Vector</TableHead>
+                <TableHead className="font-semibold text-foreground">Payload Details</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center py-12 text-muted-foreground">
-                    Loading…
+                  <TableCell colSpan={5} className="text-center py-12 text-muted-foreground font-medium">
+                    Awaiting stream...
                   </TableCell>
                 </TableRow>
               ) : !logs?.length ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center py-12 text-muted-foreground">
-                    No events found.
+                  <TableCell colSpan={5} className="text-center py-12 text-muted-foreground font-medium">
+                    Stream idle.
                   </TableCell>
                 </TableRow>
               ) : (
                 logs.map((log) => (
                   <TableRow key={log.id} className={rowClass(log.action)}>
-                    <TableCell className="text-muted-foreground text-xs whitespace-nowrap font-mono">
-                      {format(new Date(log.createdAt), 'MMM d, HH:mm:ss')}
+                    <TableCell className="text-muted-foreground text-xs whitespace-nowrap font-mono tracking-tight">
+                      <div className="flex flex-col">
+                        <span>{format(new Date(log.createdAt), 'yy/MM/dd')}</span>
+                        <span className="text-foreground">{format(new Date(log.createdAt), 'HH:mm:ss.SSS')}</span>
+                      </div>
                     </TableCell>
                     <TableCell>
                       <ActionBadge action={log.action} />
@@ -172,25 +171,29 @@ export default function AuditLogs() {
                     <TableCell>
                       {log.userEmail ? (
                         <div className="flex flex-col">
-                          <span className="text-sm font-medium">{log.userName ?? '—'}</span>
-                          <span className="text-xs text-muted-foreground">{log.userEmail}</span>
+                          <span className="text-sm font-semibold">{log.userName ?? 'SYS'}</span>
+                          <span className="text-xs text-muted-foreground font-mono">{log.userEmail}</span>
                         </div>
+                      ) : (
+                        <span className="text-muted-foreground font-mono text-xs">SYS_AUTH</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="font-mono text-xs font-medium">
+                      {log.ipAddress ? (
+                        <span className="bg-muted px-1.5 py-0.5 rounded border border-border/50">{log.ipAddress}</span>
                       ) : (
                         <span className="text-muted-foreground">—</span>
                       )}
                     </TableCell>
-                    <TableCell className="font-mono text-xs text-muted-foreground">
-                      {log.ipAddress ?? '—'}
-                    </TableCell>
-                    <TableCell className="text-sm max-w-xs">
+                    <TableCell className="text-sm">
                       {log.details ? (
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <span className="truncate block max-w-xs cursor-default">
+                            <span className="truncate block max-w-[300px] cursor-default font-mono text-xs">
                               {log.details}
                             </span>
                           </TooltipTrigger>
-                          <TooltipContent side="left" className="max-w-sm break-words">
+                          <TooltipContent side="left" className="max-w-md break-words font-mono text-xs">
                             {log.details}
                           </TooltipContent>
                         </Tooltip>

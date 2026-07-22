@@ -35,13 +35,13 @@ function CopyButton({ value }: { value: string }) {
           <Button
             variant="ghost"
             size="icon"
-            className="h-5 w-5 shrink-0 text-muted-foreground hover:text-foreground"
+            className="h-5 w-5 shrink-0 text-muted-foreground hover:text-foreground bg-muted hover:bg-muted/80 ml-2"
             onClick={handleCopy}
           >
             {copied ? <Check className="w-3 h-3 text-green-500" /> : <Copy className="w-3 h-3" />}
           </Button>
         </TooltipTrigger>
-        <TooltipContent className="text-xs">{copied ? 'Copied!' : 'Copy message ID'}</TooltipContent>
+        <TooltipContent className="text-xs font-mono">{copied ? 'Copied!' : 'Copy MSG-ID'}</TooltipContent>
       </Tooltip>
     </TooltipProvider>
   );
@@ -53,94 +53,93 @@ export default function EmailLogs() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Email Logs</h1>
-        <p className="text-muted-foreground mt-2">System-wide email delivery history and status.</p>
+        <h1 className="text-3xl font-bold tracking-tight">Delivery Logs</h1>
+        <p className="text-muted-foreground mt-2">Network-level diagnostics for email routing.</p>
       </div>
 
-      <div className="bg-card border rounded-xl shadow-sm">
+      <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden">
         <Table>
-          <TableHeader>
+          <TableHeader className="bg-muted/30">
             <TableRow>
-              <TableHead>Status</TableHead>
-              <TableHead>Document</TableHead>
-              <TableHead>Recipient</TableHead>
-              <TableHead>Sender</TableHead>
-              <TableHead>Message ID / Error</TableHead>
-              <TableHead>Time</TableHead>
+              <TableHead className="font-semibold text-foreground w-[120px]">State</TableHead>
+              <TableHead className="font-semibold text-foreground">Payload</TableHead>
+              <TableHead className="font-semibold text-foreground">Target</TableHead>
+              <TableHead className="font-semibold text-foreground">Dispatcher</TableHead>
+              <TableHead className="font-semibold text-foreground">Diagnostics</TableHead>
+              <TableHead className="font-semibold text-foreground w-[100px]">Timestamp</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading ? (
-              <TableRow><TableCell colSpan={6} className="text-center py-8">Loading...</TableCell></TableRow>
+              <TableRow><TableCell colSpan={6} className="text-center py-12 font-medium text-muted-foreground">Compiling logs...</TableCell></TableRow>
             ) : logs?.length === 0 ? (
-              <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">No email logs found.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={6} className="text-center py-12 font-medium text-muted-foreground">No traffic logged.</TableCell></TableRow>
             ) : logs?.map((log) => {
               const retryCount = log.retryCount ?? 0;
               const nextRetryAt = log.nextRetryAt;
 
               let StatusIcon = Clock;
-              let statusColor = "bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-800";
-              let statusLabel: string = 'Queued';
+              let statusColor = "bg-amber-50 text-amber-700 border-amber-200/60 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-900/50";
+              let statusLabel: string = 'QUEUED';
 
               if (log.status === 'failed') {
                 StatusIcon = AlertCircle;
-                statusColor = "bg-red-100 text-red-800 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800";
-                statusLabel = 'Failed';
+                statusColor = "bg-destructive/10 text-destructive border-destructive/20 dark:bg-destructive/20 dark:text-red-400 dark:border-destructive/30";
+                statusLabel = 'FAILED';
               } else if (log.status === 'sent') {
                 StatusIcon = CheckCircle2;
-                statusColor = "bg-green-100 text-green-800 border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-800";
-                statusLabel = 'Sent';
+                statusColor = "bg-green-50 text-green-700 border-green-200/60 dark:bg-green-950/40 dark:text-green-400 dark:border-green-900/50";
+                statusLabel = 'SENT';
               } else if (log.status === 'retry_pending') {
                 StatusIcon = RefreshCw;
-                statusColor = "bg-orange-100 text-orange-800 border-orange-200 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-800";
-                statusLabel = `Retry ${retryCount}/${MAX_RETRIES}`;
+                statusColor = "bg-orange-50 text-orange-700 border-orange-200/60 dark:bg-orange-950/40 dark:text-orange-400 dark:border-orange-900/50";
+                statusLabel = `RETRY ${retryCount}/${MAX_RETRIES}`;
               }
 
               const badge = (
-                <Badge variant="outline" className={`gap-1.5 px-2 py-0.5 ${statusColor}`}>
-                  <StatusIcon className="w-3.5 h-3.5" />
+                <Badge variant="outline" className={`gap-1.5 px-2 py-0.5 text-[10px] tracking-widest font-bold ${statusColor}`}>
+                  <StatusIcon className="w-3 h-3" />
                   {statusLabel}
                 </Badge>
               );
 
-              // Tooltip only for retry_pending (shows next retry time)
               const retryTooltip = log.status === 'retry_pending' && nextRetryAt
-                ? `Next retry at ${format(new Date(nextRetryAt), 'HH:mm:ss')}`
+                ? `Next attempt: ${format(new Date(nextRetryAt), 'HH:mm:ss')}`
                 : null;
 
               return (
-                <TableRow key={log.id}>
+                <TableRow key={log.id} className="hover:bg-muted/10 transition-colors">
                   <TableCell>
                     {retryTooltip ? (
                       <TooltipProvider>
                         <Tooltip>
                           <TooltipTrigger asChild>{badge}</TooltipTrigger>
-                          <TooltipContent className="text-xs">{retryTooltip}</TooltipContent>
+                          <TooltipContent className="text-xs font-mono">{retryTooltip}</TooltipContent>
                         </Tooltip>
                       </TooltipProvider>
                     ) : badge}
                   </TableCell>
 
-                  <TableCell className="font-medium">
+                  <TableCell className="font-semibold text-sm max-w-[200px] truncate" title={log.documentName || `Doc #${log.documentId}`}>
                     {log.documentName || `Doc #${log.documentId}`}
                   </TableCell>
 
                   <TableCell>
-                    <div className="flex items-center gap-2">
-                      <Mail className="w-3.5 h-3.5 text-muted-foreground" />
-                      <span>{log.recipientEmail}</span>
+                    <div className="flex items-center gap-2 text-sm font-mono">
+                      <Mail className="w-3.5 h-3.5 text-muted-foreground/70 shrink-0" />
+                      <span className="truncate">{log.recipientEmail}</span>
                     </div>
                   </TableCell>
 
-                  <TableCell className="text-muted-foreground text-sm">
+                  <TableCell className="text-muted-foreground text-sm font-medium">
                     {log.senderName || `User #${log.senderId}`}
                   </TableCell>
 
-                  {/* Message ID (sent) or error reason (failed/retry) */}
-                  <TableCell className="max-w-[260px]">
+                  <TableCell className="max-w-[280px]">
                     {log.status === 'sent' && log.messageId ? (
-                      <div className="flex items-center gap-1 min-w-0">
-                        <code className="text-xs font-mono text-muted-foreground truncate">
+                      <div className="flex items-center min-w-0 bg-muted/50 border border-border/50 rounded pl-2 pr-1 py-1 w-fit">
+                        <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider mr-2">ID</span>
+                        <code className="text-xs font-mono text-foreground truncate">
                           {log.messageId}
                         </code>
                         <CopyButton value={log.messageId} />
@@ -149,20 +148,26 @@ export default function EmailLogs() {
                       <TooltipProvider>
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <p className="text-xs text-red-600 dark:text-red-400 truncate cursor-default">
-                              {log.errorMessage}
-                            </p>
+                            <div className="flex items-center gap-1.5 text-destructive bg-destructive/5 border border-destructive/10 px-2 py-1 rounded text-xs font-medium cursor-default">
+                              <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                              <span className="truncate">{log.errorMessage}</span>
+                            </div>
                           </TooltipTrigger>
-                          <TooltipContent className="max-w-xs text-xs">{log.errorMessage}</TooltipContent>
+                          <TooltipContent className="max-w-xs text-xs bg-destructive text-destructive-foreground font-mono">{log.errorMessage}</TooltipContent>
                         </Tooltip>
                       </TooltipProvider>
                     ) : (
-                      <span className="text-muted-foreground text-xs">—</span>
+                      <span className="text-muted-foreground text-sm opacity-50">—</span>
                     )}
                   </TableCell>
 
-                  <TableCell className="text-muted-foreground text-sm whitespace-nowrap">
-                    {log.sentAt ? format(new Date(log.sentAt), 'MMM d, HH:mm:ss') : '-'}
+                  <TableCell className="text-muted-foreground font-mono text-xs whitespace-nowrap">
+                    {log.sentAt ? (
+                      <>
+                        <span>{format(new Date(log.sentAt), 'MMM d')}</span><br/>
+                        <span className="opacity-70">{format(new Date(log.sentAt), 'HH:mm:ss')}</span>
+                      </>
+                    ) : '-'}
                   </TableCell>
                 </TableRow>
               );

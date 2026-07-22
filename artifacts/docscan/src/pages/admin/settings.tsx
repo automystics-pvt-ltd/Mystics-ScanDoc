@@ -4,7 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Save, Server, Loader2, Mail, CheckCircle2, XCircle } from 'lucide-react';
+import { Save, Server, Loader2, Mail, CheckCircle2, XCircle, SlidersHorizontal } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
@@ -59,10 +59,10 @@ export default function Settings() {
     updateSettings.mutate({ data: values }, {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: getGetSettingsQueryKey() });
-        toast({ title: "Settings saved successfully" });
+        toast({ title: "Configuration Applied", description: "System parameters have been updated." });
       },
       onError: (err) => {
-        toast({ title: "Failed to save settings", description: (err as any).data?.error || "Error", variant: "destructive" });
+        toast({ title: "Configuration Error", description: (err as any).data?.error || "Error applying settings.", variant: "destructive" });
       }
     });
   };
@@ -80,62 +80,64 @@ export default function Settings() {
       });
       const data = await res.json();
       if (res.ok && data.success) {
-        setTestResult({ success: true, message: `Email sent! Message ID: ${data.messageId}` });
+        setTestResult({ success: true, message: `Dispatched. Reference ID: ${data.messageId}` });
       } else {
-        setTestResult({ success: false, message: data.error || 'Failed to send test email' });
+        setTestResult({ success: false, message: data.error || 'Diagnostic dispatch failed' });
       }
     } catch {
-      setTestResult({ success: false, message: 'Network error sending test email' });
+      setTestResult({ success: false, message: 'Network layer fault during dispatch' });
     } finally {
       setTestSending(false);
     }
   };
 
   if (isLoading) {
-    return <div className="p-8 text-center">Loading settings...</div>;
+    return <div className="p-8 text-center text-muted-foreground font-medium animate-pulse">Initializing settings panel...</div>;
   }
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto">
+    <div className="space-y-8 max-w-4xl mx-auto pb-12">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">System Settings</h1>
-        <p className="text-muted-foreground mt-2">Configure email delivery and system limits.</p>
+        <h1 className="text-3xl font-bold tracking-tight">System Configuration</h1>
+        <p className="text-muted-foreground mt-2">Adjust core parameters and network transport settings.</p>
       </div>
 
       {/* Resend Integration Status */}
-      <Card className="border-green-200 bg-green-50/50 dark:border-green-800 dark:bg-green-950/20">
-        <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-base">
-            <CheckCircle2 className="w-5 h-5 text-green-600" />
-            Resend Integration Active
-            <Badge variant="secondary" className="ml-auto bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">Connected</Badge>
-          </CardTitle>
-          <CardDescription>
-            Emails are delivered via the Resend API. No manual SMTP configuration needed.
-            Optionally set a custom "From" address below (must be verified in your Resend account).
-          </CardDescription>
-        </CardHeader>
-      </Card>
+      <div className="bg-primary/5 border border-primary/20 rounded-xl p-5 flex items-start gap-4 shadow-sm">
+        <div className="bg-primary/10 p-2 rounded-lg shrink-0 border border-primary/10">
+          <CheckCircle2 className="w-6 h-6 text-primary" />
+        </div>
+        <div className="flex-1">
+          <div className="flex items-center justify-between mb-1">
+            <h3 className="font-bold text-foreground">API Transport Layer Active</h3>
+            <Badge variant="outline" className="bg-primary/10 text-primary border-primary/30 uppercase tracking-widest text-[10px] font-bold">Connected</Badge>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            Outbound traffic is currently routed via the Resend API. Standard SMTP configurations are bypassed.
+            You may optionally enforce a specific verified sender identity below.
+          </p>
+        </div>
+      </div>
 
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Server className="w-5 h-5 text-primary" />
-                Email Configuration
-              </CardTitle>
-              <CardDescription>Optional: set a verified sender address. Leave blank to use the default Resend address.</CardDescription>
-            </CardHeader>
-            <CardContent>
+          <Card className="border-border shadow-sm overflow-hidden">
+            <div className="bg-muted/30 border-b border-border px-6 py-4 flex items-center gap-3">
+              <Server className="w-5 h-5 text-primary" />
+              <div>
+                <h3 className="font-bold text-foreground">Transport Identity</h3>
+                <p className="text-xs text-muted-foreground">Define the source address for outbound communications.</p>
+              </div>
+            </div>
+            <CardContent className="p-6">
               <FormField control={form.control} name="smtpUser" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>From Address (optional)</FormLabel>
+                <FormItem className="max-w-md">
+                  <FormLabel className="text-xs uppercase tracking-wider font-semibold text-muted-foreground">Origin Address (Optional)</FormLabel>
                   <FormControl>
-                    <Input placeholder="noreply@yourdomain.com" {...field} />
+                    <Input placeholder="noreply@domain.com" className="font-mono bg-muted/50" {...field} />
                   </FormControl>
-                  <FormDescription>
-                    Must be a verified sender in your Resend account. Leave blank to use <code className="text-xs bg-muted px-1 py-0.5 rounded">onboarding@resend.dev</code>.
+                  <FormDescription className="text-xs">
+                    Address must be pre-verified with the transport provider. Defaults to <code className="bg-muted px-1.5 py-0.5 rounded border border-border/50 text-foreground">onboarding@resend.dev</code> if omitted.
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
@@ -144,72 +146,79 @@ export default function Settings() {
           </Card>
 
           {/* Test Email */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Mail className="w-5 h-5 text-primary" />
-                Send Test Email
-              </CardTitle>
-              <CardDescription>Verify email delivery is working end-to-end.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
+          <Card className="border-border shadow-sm overflow-hidden">
+            <div className="bg-muted/30 border-b border-border px-6 py-4 flex items-center gap-3">
+              <Mail className="w-5 h-5 text-primary" />
+              <div>
+                <h3 className="font-bold text-foreground">Diagnostic Dispatch</h3>
+                <p className="text-xs text-muted-foreground">Verify end-to-end routing integrity.</p>
+              </div>
+            </div>
+            <CardContent className="p-6 space-y-4">
               <div className="flex gap-3">
                 <Input
                   type="email"
-                  placeholder="you@example.com"
+                  placeholder="test@domain.com"
                   value={testEmail}
                   onChange={e => setTestEmail(e.target.value)}
-                  className="max-w-sm"
+                  className="max-w-sm font-mono bg-muted/50"
                 />
                 <Button
                   type="button"
-                  variant="outline"
+                  variant="secondary"
                   onClick={handleTestEmail}
                   disabled={testSending || !testEmail}
+                  className="px-6 border border-border font-medium"
                 >
                   {testSending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Mail className="w-4 h-4 mr-2" />}
-                  Send Test
+                  Execute Test
                 </Button>
               </div>
               {testResult && (
-                <div className={`flex items-start gap-2 text-sm rounded-md p-3 ${testResult.success ? 'bg-green-50 text-green-800 dark:bg-green-950/30 dark:text-green-200' : 'bg-red-50 text-red-800 dark:bg-red-950/30 dark:text-red-200'}`}>
+                <div className={`flex items-start gap-2.5 text-sm rounded-lg p-4 border font-mono ${testResult.success ? 'bg-green-500/5 text-green-700 dark:text-green-400 border-green-500/20' : 'bg-destructive/5 text-destructive border-destructive/20'}`}>
                   {testResult.success
                     ? <CheckCircle2 className="w-4 h-4 mt-0.5 shrink-0" />
                     : <XCircle className="w-4 h-4 mt-0.5 shrink-0" />}
-                  {testResult.message}
+                  <span className="font-medium tracking-tight">{testResult.message}</span>
                 </div>
               )}
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>System Limits</CardTitle>
-            </CardHeader>
-            <CardContent className="grid sm:grid-cols-2 gap-6">
-              <FormField control={form.control} name="maxFileSizeMb" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Max File Size (MB)</FormLabel>
-                  <FormControl><Input type="number" {...field} /></FormControl>
-                  <FormDescription>Maximum size per document upload.</FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )} />
-              <FormField control={form.control} name="maxRecipients" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Max Recipients</FormLabel>
-                  <FormControl><Input type="number" {...field} /></FormControl>
-                  <FormDescription>Global limit on configured recipients.</FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )} />
+          <Card className="border-border shadow-sm overflow-hidden">
+            <div className="bg-muted/30 border-b border-border px-6 py-4 flex items-center gap-3">
+              <SlidersHorizontal className="w-5 h-5 text-primary" />
+              <div>
+                <h3 className="font-bold text-foreground">Constraints & Quotas</h3>
+                <p className="text-xs text-muted-foreground">System-level operational limits.</p>
+              </div>
+            </div>
+            <CardContent className="p-6">
+              <div className="grid sm:grid-cols-2 gap-8">
+                <FormField control={form.control} name="maxFileSizeMb" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-xs uppercase tracking-wider font-semibold text-muted-foreground">Max Payload Size (MB)</FormLabel>
+                    <FormControl><Input type="number" className="font-mono bg-muted/50" {...field} /></FormControl>
+                    <FormDescription className="text-xs">Hard limit per transmission.</FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+                <FormField control={form.control} name="maxRecipients" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-xs uppercase tracking-wider font-semibold text-muted-foreground">Global Routing Limit</FormLabel>
+                    <FormControl><Input type="number" className="font-mono bg-muted/50" {...field} /></FormControl>
+                    <FormDescription className="text-xs">Maximum allowed targets in the registry.</FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+              </div>
             </CardContent>
           </Card>
 
-          <div className="flex justify-end">
-            <Button type="submit" size="lg" disabled={updateSettings.isPending}>
-              {updateSettings.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
-              Save Settings
+          <div className="flex justify-end pt-4">
+            <Button type="submit" size="lg" disabled={updateSettings.isPending} className="px-8 font-semibold shadow-lg shadow-primary/20">
+              {updateSettings.isPending ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : <Save className="w-5 h-5 mr-2" />}
+              Apply Configuration
             </Button>
           </div>
         </form>
