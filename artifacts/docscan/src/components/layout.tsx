@@ -1,5 +1,6 @@
 import { Link, useLocation } from 'wouter';
 import { useAuth } from '@/contexts/auth-context';
+import { useQueryClient } from '@tanstack/react-query';
 import { 
   LayoutDashboard, 
   UploadCloud, 
@@ -24,8 +25,10 @@ import { motion } from 'framer-motion';
 export function Layout({ children }: { children: React.ReactNode }) {
   const { user, logout } = useAuth();
   const [location] = useLocation();
+  const queryClient = useQueryClient();
 
   const handleLogout = () => {
+    queryClient.clear();
     logout();
   };
 
