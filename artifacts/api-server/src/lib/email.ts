@@ -25,31 +25,27 @@ export async function sendEmail(opts: SendEmailOptions): Promise<SendEmailResult
   try {
     const connectors = new ReplitConnectors();
 
-    // Build multipart form data if there's an attachment
-    let body: FormData | string;
-    let headers: Record<string, string> = {};
+    // Resend expects JSON for all requests; attachments are base64-encoded inline.
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+
+    const payload: Record<string, unknown> = {
+      from: opts.from,
+      to: [opts.to],
+      subject: opts.subject,
+      text: opts.text,
+    };
 
     if (opts.attachmentPath && fs.existsSync(opts.attachmentPath)) {
-      const form = new FormData();
-      form.append("from", opts.from);
-      form.append("to", opts.to);
-      form.append("subject", opts.subject);
-      form.append("text", opts.text);
-
       const fileBuffer = fs.readFileSync(opts.attachmentPath);
-      const blob = new Blob([fileBuffer]);
-      form.append("attachments", blob, opts.attachmentName ?? path.basename(opts.attachmentPath));
-
-      body = form;
-    } else {
-      headers["Content-Type"] = "application/json";
-      body = JSON.stringify({
-        from: opts.from,
-        to: [opts.to],
-        subject: opts.subject,
-        text: opts.text,
-      });
+      payload["attachments"] = [
+        {
+          filename: opts.attachmentName ?? path.basename(opts.attachmentPath),
+          content: fileBuffer.toString("base64"),
+        },
+      ];
     }
+
+    const body = JSON.stringify(payload);
 
     const response = await connectors.proxy("resend", "/emails", {
       method: "POST",
