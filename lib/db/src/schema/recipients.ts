@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, timestamp, boolean } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { usersTable } from "./users";
@@ -7,6 +7,7 @@ export const recipientsTable = pgTable("recipients", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").references(() => usersTable.id, { onDelete: "cascade" }),
   recipientEmail: text("recipient_email").notNull(),
+  isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

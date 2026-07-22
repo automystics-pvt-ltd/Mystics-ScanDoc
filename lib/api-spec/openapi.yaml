@@ -356,6 +356,29 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
 
   /admin/recipients/{id}:
+    patch:
+      operationId: toggleRecipient
+      tags: [admin-recipients]
+      summary: Toggle a recipient's active/inactive status
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Recipient updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Recipient"
+        "404":
+          description: Recipient not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
     delete:
       operationId: deleteRecipient
       tags: [admin-recipients]
@@ -662,7 +685,7 @@ components:
 
     Recipient:
       type: object
-      required: [id, recipientEmail, createdAt]
+      required: [id, recipientEmail, isActive, createdAt]
       properties:
         id:
           type: integer
@@ -670,6 +693,8 @@ components:
           type: ["integer", "null"]
         recipientEmail:
           type: string
+        isActive:
+          type: boolean
         createdAt:
           type: string
           format: date-time

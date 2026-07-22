@@ -182,6 +182,7 @@ export interface Recipient {
   /** @nullable */
   userId?: number | null;
   recipientEmail: string;
+  isActive: boolean;
   createdAt: string;
 }
 

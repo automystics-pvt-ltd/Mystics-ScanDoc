@@ -70,6 +70,33 @@ router.post("/admin/recipients", requireAuth, requireAdmin, async (req, res): Pr
   res.status(201).json(recipient);
 });
 
+// PATCH /admin/recipients/:id — toggle active/inactive
+router.patch("/admin/recipients/:id", requireAuth, requireAdmin, async (req, res): Promise<void> => {
+  const rawId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+  const id = parseInt(rawId, 10);
+
+  const [existing] = await db.select().from(recipientsTable).where(eq(recipientsTable.id, id));
+  if (!existing) {
+    res.status(404).json({ error: "Recipient not found" });
+    return;
+  }
+
+  const [updated] = await db
+    .update(recipientsTable)
+    .set({ isActive: !existing.isActive })
+    .where(eq(recipientsTable.id, id))
+    .returning();
+
+  await db.insert(auditLogsTable).values({
+    action: updated.isActive ? "recipient_activated" : "recipient_deactivated",
+    userId: req.user!.id,
+    details: `${updated.isActive ? "Activated" : "Deactivated"} recipient: ${existing.recipientEmail}`,
+    ipAddress: req.ip,
+  });
+
+  res.json(updated);
+});
+
 // DELETE /admin/recipients/:id
 router.delete("/admin/recipients/:id", requireAuth, requireAdmin, async (req, res): Promise<void> => {
   const rawId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;

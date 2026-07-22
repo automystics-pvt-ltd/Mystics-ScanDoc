@@ -330,6 +330,7 @@ export const ListRecipientsResponseItem = zod.object({
   "id": zod.number(),
   "userId": zod.number().nullish(),
   "recipientEmail": zod.string(),
+  "isActive": zod.boolean(),
   "createdAt": zod.coerce.date()
 })
 export const ListRecipientsResponse = zod.array(ListRecipientsResponseItem)
@@ -347,6 +348,23 @@ export const CreateRecipientResponse = zod.object({
   "id": zod.number(),
   "userId": zod.number().nullish(),
   "recipientEmail": zod.string(),
+  "isActive": zod.boolean(),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Toggle a recipient's active/inactive status
+ */
+export const ToggleRecipientParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const ToggleRecipientResponse = zod.object({
+  "id": zod.number(),
+  "userId": zod.number().nullish(),
+  "recipientEmail": zod.string(),
+  "isActive": zod.boolean(),
   "createdAt": zod.coerce.date()
 })
 

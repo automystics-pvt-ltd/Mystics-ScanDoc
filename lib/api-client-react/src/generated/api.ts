@@ -1324,6 +1324,77 @@ export const useCreateRecipient = <TError = ErrorType<ErrorResponse>,
       return useMutation(getCreateRecipientMutationOptions(options));
     }
 
+export const getToggleRecipientUrl = (id: number,) => {
+
+
+
+
+  return `/api/admin/recipients/${id}`
+}
+
+/**
+ * @summary Toggle a recipient's active/inactive status
+ */
+export const toggleRecipient = async (id: number, options?: RequestInit): Promise<Recipient> => {
+
+  return customFetch<Recipient>(getToggleRecipientUrl(id),
+  {
+    ...options,
+    method: 'PATCH'
+
+
+  }
+);}
+
+
+
+
+
+export const getToggleRecipientMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof toggleRecipient>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof toggleRecipient>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['toggleRecipient'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof toggleRecipient>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  toggleRecipient(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ToggleRecipientMutationResult = NonNullable<Awaited<ReturnType<typeof toggleRecipient>>>
+
+    export type ToggleRecipientMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Toggle a recipient's active/inactive status
+ */
+export const useToggleRecipient = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof toggleRecipient>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof toggleRecipient>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getToggleRecipientMutationOptions(options));
+    }
+
 export const getDeleteRecipientUrl = (id: number,) => {
 
 
