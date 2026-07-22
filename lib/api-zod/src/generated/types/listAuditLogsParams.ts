@@ -7,6 +7,17 @@
  */
 
 export type ListAuditLogsParams = {
+/**
+ * Filter by action type (e.g. login_failed, user_login, account_locked, user_unlocked)
+ */
 action?: string;
+/**
+ * @minimum 1
+ * @maximum 500
+ */
 limit?: number;
+/**
+ * @minimum 0
+ */
+offset?: number;
 };

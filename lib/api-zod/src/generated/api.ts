@@ -141,7 +141,7 @@ export const GetDashboardStatsResponse = zod.object({
   "recentActivity": zod.array(zod.object({
   "id": zod.number(),
   "action": zod.string(),
-  "userId": zod.number().nullable(),
+  "userId": zod.number().nullish(),
   "userName": zod.string().nullish(),
   "userEmail": zod.string().nullish(),
   "details": zod.string().nullish(),
@@ -407,17 +407,26 @@ export const UpdateSettingsResponse = zod.object({
 
 
 /**
- * @summary List audit logs
+ * @summary List audit logs with optional filtering
  */
+export const listAuditLogsQueryLimitDefault = 100;
+export const listAuditLogsQueryLimitMax = 500;
+
+export const listAuditLogsQueryOffsetDefault = 0;
+export const listAuditLogsQueryOffsetMin = 0;
+
+
+
 export const ListAuditLogsQueryParams = zod.object({
-  "action": zod.coerce.string().optional(),
-  "limit": zod.coerce.number().optional()
+  "action": zod.coerce.string().optional().describe('Filter by action type (e.g. login_failed, user_login, account_locked, user_unlocked)'),
+  "limit": zod.coerce.number().min(1).max(listAuditLogsQueryLimitMax).default(listAuditLogsQueryLimitDefault),
+  "offset": zod.coerce.number().min(listAuditLogsQueryOffsetMin).default(listAuditLogsQueryOffsetDefault)
 })
 
 export const ListAuditLogsResponseItem = zod.object({
   "id": zod.number(),
   "action": zod.string(),
-  "userId": zod.number().nullable(),
+  "userId": zod.number().nullish(),
   "userName": zod.string().nullish(),
   "userEmail": zod.string().nullish(),
   "details": zod.string().nullish(),

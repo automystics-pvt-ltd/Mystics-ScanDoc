@@ -1559,7 +1559,7 @@ export const getListAuditLogsUrl = (params?: ListAuditLogsParams,) => {
 }
 
 /**
- * @summary List audit logs
+ * @summary List audit logs with optional filtering
  */
 export const listAuditLogs = async (params?: ListAuditLogsParams, options?: RequestInit): Promise<AuditLog[]> => {
 
@@ -1606,7 +1606,7 @@ export type ListAuditLogsQueryError = ErrorType<unknown>
 
 
 /**
- * @summary List audit logs
+ * @summary List audit logs with optional filtering
  */
 
 export function useListAuditLogs<TData = Awaited<ReturnType<typeof listAuditLogs>>, TError = ErrorType<unknown>>(

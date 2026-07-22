@@ -64,11 +64,18 @@ router.post("/auth/login", loginRateLimiter, async (req, res): Promise<void> => 
     await db.insert(auditLogsTable).values({
       action: "login_failed",
       userId: user.id,
-      details: shouldLock
-        ? `Account locked after ${newAttempts} failed attempts`
-        : `Failed login attempt ${newAttempts}/${LOCKOUT_THRESHOLD}`,
+      details: `Failed login attempt ${newAttempts}/${LOCKOUT_THRESHOLD}`,
       ipAddress: req.ip,
     });
+
+    if (shouldLock) {
+      await db.insert(auditLogsTable).values({
+        action: "account_locked",
+        userId: user.id,
+        details: `Account locked for 30 minutes after ${newAttempts} failed login attempts`,
+        ipAddress: req.ip,
+      });
+    }
 
     res.status(401).json({ error: "Invalid email or password" });
     return;

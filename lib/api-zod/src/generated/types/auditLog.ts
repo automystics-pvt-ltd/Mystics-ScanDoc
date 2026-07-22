@@ -10,7 +10,7 @@ export interface AuditLog {
   id: number;
   action: string;
   /** @nullable */
-  userId: number | null;
+  userId?: number | null;
   /** @nullable */
   userName?: string | null;
   /** @nullable */

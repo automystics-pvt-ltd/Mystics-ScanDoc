@@ -26,6 +26,8 @@ tags:
     description: Admin system settings
   - name: dashboard
     description: Dashboard statistics
+  - name: admin-audit-logs
+    description: Admin audit log management
 
 paths:
   /healthz:
@@ -407,19 +409,30 @@ paths:
   /admin/audit-logs:
     get:
       operationId: listAuditLogs
-      tags: [dashboard]
-      summary: List audit logs
+      tags: [admin-audit-logs]
+      summary: List audit logs with optional filtering
       parameters:
         - name: action
           in: query
           required: false
           schema:
             type: string
+          description: Filter by action type (e.g. login_failed, user_login, account_locked, user_unlocked)
         - name: limit
           in: query
           required: false
           schema:
             type: integer
+            default: 100
+            minimum: 1
+            maximum: 500
+        - name: offset
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
       responses:
         "200":
           description: Audit logs
@@ -737,7 +750,7 @@ components:
 
     AuditLog:
       type: object
-      required: [id, action, userId, createdAt]
+      required: [id, action, createdAt]
       properties:
         id:
           type: integer
