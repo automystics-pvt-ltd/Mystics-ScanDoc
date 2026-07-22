@@ -96,7 +96,7 @@ export default function Settings() {
   }
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto pb-12">
+    <div className="space-y-6 max-w-7xl mx-auto pb-12">
       <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
 
       <div className="bg-card border border-border rounded-lg p-5 flex items-start gap-4 shadow-sm">
