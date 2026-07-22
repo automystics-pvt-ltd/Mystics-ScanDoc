@@ -3,18 +3,29 @@ import bcrypt from "bcryptjs";
 import { eq, sql } from "drizzle-orm";
 import { db, usersTable, auditLogsTable } from "@workspace/db";
 import { requireAuth, signToken } from "../middlewares/auth";
+import { loginRateLimiter } from "../lib/rate-limiter";
 
 const router: IRouter = Router();
 
-router.post("/auth/login", async (req, res): Promise<void> => {
+/** Number of failed attempts before the account is temporarily locked. */
+const LOCKOUT_THRESHOLD = 10;
+/** How long (ms) the account stays locked after threshold is reached. */
+const LOCKOUT_DURATION_MS = 30 * 60 * 1000; // 30 minutes
+
+router.post("/auth/login", loginRateLimiter, async (req, res): Promise<void> => {
   const { email, password } = req.body;
   if (!email || !password) {
     res.status(400).json({ error: "Email and password are required" });
     return;
   }
 
-  const [user] = await db.select().from(usersTable).where(eq(usersTable.email, email.toLowerCase().trim()));
+  const [user] = await db
+    .select()
+    .from(usersTable)
+    .where(eq(usersTable.email, email.toLowerCase().trim()));
+
   if (!user) {
+    // Don't reveal whether the email exists — generic error
     res.status(401).json({ error: "Invalid email or password" });
     return;
   }
@@ -24,13 +35,51 @@ router.post("/auth/login", async (req, res): Promise<void> => {
     return;
   }
 
+  // Account lockout check
+  if (user.lockedUntil && user.lockedUntil > new Date()) {
+    const retryAfterSec = Math.ceil((user.lockedUntil.getTime() - Date.now()) / 1000);
+    res.setHeader("Retry-After", String(retryAfterSec));
+    res.status(429).json({
+      error: `Account temporarily locked due to too many failed attempts. Try again in ${Math.ceil(retryAfterSec / 60)} minute(s).`,
+    });
+    return;
+  }
+
   const valid = await bcrypt.compare(password, user.passwordHash);
+
   if (!valid) {
+    // Increment failed attempts and potentially lock the account
+    const newAttempts = (user.failedLoginAttempts ?? 0) + 1;
+    const shouldLock = newAttempts >= LOCKOUT_THRESHOLD;
+    const lockedUntil = shouldLock ? new Date(Date.now() + LOCKOUT_DURATION_MS) : null;
+
+    await db
+      .update(usersTable)
+      .set({
+        failedLoginAttempts: newAttempts,
+        ...(lockedUntil !== undefined ? { lockedUntil } : {}),
+      })
+      .where(eq(usersTable.id, user.id));
+
+    await db.insert(auditLogsTable).values({
+      action: "login_failed",
+      userId: user.id,
+      details: shouldLock
+        ? `Account locked after ${newAttempts} failed attempts`
+        : `Failed login attempt ${newAttempts}/${LOCKOUT_THRESHOLD}`,
+      ipAddress: req.ip,
+    });
+
     res.status(401).json({ error: "Invalid email or password" });
     return;
   }
 
-  // Log login
+  // Successful login — reset failure counters
+  await db
+    .update(usersTable)
+    .set({ failedLoginAttempts: 0, lockedUntil: null })
+    .where(eq(usersTable.id, user.id));
+
   await db.insert(auditLogsTable).values({
     action: "user_login",
     userId: user.id,

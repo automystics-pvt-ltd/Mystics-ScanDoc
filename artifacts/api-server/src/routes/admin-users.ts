@@ -33,6 +33,7 @@ router.get("/admin/users", requireAuth, requireAdmin, async (req, res): Promise<
         email: user.email,
         role: user.role,
         status: user.status,
+        lockedUntil: user.lockedUntil?.toISOString() ?? null,
         createdAt: user.createdAt,
         documentCount: Number(countRow?.count ?? 0),
         lastActivity: lastDoc?.uploadedAt?.toISOString() ?? null,
@@ -137,6 +138,43 @@ router.patch("/admin/users/:id", requireAuth, requireAdmin, async (req, res): Pr
     status: updated.status,
     createdAt: updated.createdAt,
     documentCount: Number(countRow?.count ?? 0),
+    lastActivity: null,
+  });
+});
+
+// POST /admin/users/:id/unlock — clear account lockout
+router.post("/admin/users/:id/unlock", requireAuth, requireAdmin, async (req, res): Promise<void> => {
+  const rawId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+  const id = parseInt(rawId, 10);
+
+  const [existing] = await db.select().from(usersTable).where(eq(usersTable.id, id));
+  if (!existing) {
+    res.status(404).json({ error: "User not found" });
+    return;
+  }
+
+  const [updated] = await db
+    .update(usersTable)
+    .set({ failedLoginAttempts: 0, lockedUntil: null })
+    .where(eq(usersTable.id, id))
+    .returning();
+
+  await db.insert(auditLogsTable).values({
+    action: "user_unlocked",
+    userId: req.user!.id,
+    details: `Admin unlocked account: ${existing.email}`,
+    ipAddress: req.ip,
+  });
+
+  res.json({
+    id: updated.id,
+    name: updated.name,
+    email: updated.email,
+    role: updated.role,
+    status: updated.status,
+    createdAt: updated.createdAt,
+    lockedUntil: null,
+    documentCount: 0,
     lastActivity: null,
   });
 });

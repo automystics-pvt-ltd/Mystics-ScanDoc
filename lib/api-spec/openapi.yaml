@@ -239,6 +239,31 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /admin/users/{id}/unlock:
+    post:
+      operationId: unlockUser
+      tags: [admin-users]
+      summary: Clear account lockout for a user
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Account unlocked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "404":
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /admin/documents:
     get:
       operationId: listAllDocuments
@@ -452,6 +477,9 @@ components:
         status:
           type: string
           enum: [active, inactive]
+        lockedUntil:
+          type: ["string", "null"]
+          format: date-time
         createdAt:
           type: string
           format: date-time

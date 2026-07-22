@@ -35,6 +35,7 @@ export const LoginResponse = zod.object({
   "email": zod.string(),
   "role": zod.enum(['user', 'admin']),
   "status": zod.enum(['active', 'inactive']),
+  "lockedUntil": zod.coerce.date().nullish(),
   "createdAt": zod.coerce.date(),
   "documentCount": zod.number().nullish(),
   "lastActivity": zod.string().nullish()
@@ -59,6 +60,7 @@ export const GetMeResponse = zod.object({
   "email": zod.string(),
   "role": zod.enum(['user', 'admin']),
   "status": zod.enum(['active', 'inactive']),
+  "lockedUntil": zod.coerce.date().nullish(),
   "createdAt": zod.coerce.date(),
   "documentCount": zod.number().nullish(),
   "lastActivity": zod.string().nullish()
@@ -157,6 +159,7 @@ export const ListUsersResponseItem = zod.object({
   "email": zod.string(),
   "role": zod.enum(['user', 'admin']),
   "status": zod.enum(['active', 'inactive']),
+  "lockedUntil": zod.coerce.date().nullish(),
   "createdAt": zod.coerce.date(),
   "documentCount": zod.number().nullish(),
   "lastActivity": zod.string().nullish()
@@ -185,6 +188,7 @@ export const CreateUserResponse = zod.object({
   "email": zod.string(),
   "role": zod.enum(['user', 'admin']),
   "status": zod.enum(['active', 'inactive']),
+  "lockedUntil": zod.coerce.date().nullish(),
   "createdAt": zod.coerce.date(),
   "documentCount": zod.number().nullish(),
   "lastActivity": zod.string().nullish()
@@ -216,6 +220,7 @@ export const UpdateUserResponse = zod.object({
   "email": zod.string(),
   "role": zod.enum(['user', 'admin']),
   "status": zod.enum(['active', 'inactive']),
+  "lockedUntil": zod.coerce.date().nullish(),
   "createdAt": zod.coerce.date(),
   "documentCount": zod.number().nullish(),
   "lastActivity": zod.string().nullish()
@@ -230,6 +235,26 @@ export const DeleteUserParams = zod.object({
 })
 
 export const DeleteUserResponse = zod.void()
+
+
+/**
+ * @summary Clear account lockout for a user
+ */
+export const UnlockUserParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const UnlockUserResponse = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "email": zod.string(),
+  "role": zod.enum(['user', 'admin']),
+  "status": zod.enum(['active', 'inactive']),
+  "lockedUntil": zod.coerce.date().nullish(),
+  "createdAt": zod.coerce.date(),
+  "documentCount": zod.number().nullish(),
+  "lastActivity": zod.string().nullish()
+})
 
 
 /**

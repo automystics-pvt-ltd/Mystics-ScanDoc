@@ -1,8 +1,8 @@
 import { useState, useRef, useCallback } from 'react';
-import { useListUsers, useCreateUser, useUpdateUser, useDeleteUser, getListUsersQueryKey, UserInput, UserUpdate } from '@workspace/api-client-react';
+import { useListUsers, useCreateUser, useUpdateUser, useDeleteUser, useUnlockUser, getListUsersQueryKey, UserInput, UserUpdate } from '@workspace/api-client-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
-import { Plus, MoreHorizontal, ShieldAlert, Edit, Trash, Lock } from 'lucide-react';
+import { Plus, MoreHorizontal, ShieldAlert, Edit, Trash, Lock, LockOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -52,6 +52,7 @@ export default function Users() {
   const createUser = useCreateUser();
   const updateUser = useUpdateUser();
   const deleteUser = useDeleteUser();
+  const unlockUser = useUnlockUser();
   
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingUserId, setEditingUserId] = useState<number | null>(null);
@@ -143,6 +144,18 @@ export default function Users() {
     }
   };
 
+  const handleUnlock = (id: number) => {
+    unlockUser.mutate({ id }, {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getListUsersQueryKey() });
+        toast({ title: "Account unlocked" });
+      },
+      onError: (err) => {
+        toast({ title: "Unlock failed", description: (err as any).data?.error || "Error", variant: "destructive" });
+      }
+    });
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -185,9 +198,16 @@ export default function Users() {
                   </Badge>
                 </TableCell>
                 <TableCell>
-                  <Badge variant="outline" className={user.status === 'active' ? "bg-green-100 text-green-800 border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-800" : "bg-gray-100 text-gray-800 border-gray-200 dark:bg-gray-800 dark:text-gray-300"}>
-                    {user.status}
-                  </Badge>
+                  <div className="flex flex-wrap gap-1">
+                    <Badge variant="outline" className={user.status === 'active' ? "bg-green-100 text-green-800 border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-800" : "bg-gray-100 text-gray-800 border-gray-200 dark:bg-gray-800 dark:text-gray-300"}>
+                      {user.status}
+                    </Badge>
+                    {user.lockedUntil && new Date(user.lockedUntil) > new Date() && (
+                      <Badge variant="outline" className="gap-1 bg-red-100 text-red-800 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800">
+                        <Lock className="w-3 h-3" /> Locked
+                      </Badge>
+                    )}
+                  </div>
                 </TableCell>
                 <TableCell>{user.documentCount || 0}</TableCell>
                 <TableCell className="text-muted-foreground">
@@ -204,6 +224,11 @@ export default function Users() {
                       <DropdownMenuItem onClick={() => handleOpenEdit(user)}>
                         <Edit className="w-4 h-4 mr-2" /> Edit
                       </DropdownMenuItem>
+                      {user.lockedUntil && new Date(user.lockedUntil) > new Date() && (
+                        <DropdownMenuItem onClick={() => handleUnlock(user.id)}>
+                          <LockOpen className="w-4 h-4 mr-2" /> Unlock account
+                        </DropdownMenuItem>
+                      )}
                       <DropdownMenuSeparator />
                       <DropdownMenuItem onClick={() => handleDelete(user.id)} className="text-destructive">
                         <Trash className="w-4 h-4 mr-2" /> Delete

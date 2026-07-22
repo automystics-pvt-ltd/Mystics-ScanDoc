@@ -879,6 +879,77 @@ export const useDeleteUser = <TError = ErrorType<ErrorResponse>,
       return useMutation(getDeleteUserMutationOptions(options));
     }
 
+export const getUnlockUserUrl = (id: number,) => {
+
+
+
+
+  return `/api/admin/users/${id}/unlock`
+}
+
+/**
+ * @summary Clear account lockout for a user
+ */
+export const unlockUser = async (id: number, options?: RequestInit): Promise<User> => {
+
+  return customFetch<User>(getUnlockUserUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getUnlockUserMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof unlockUser>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof unlockUser>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['unlockUser'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof unlockUser>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  unlockUser(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UnlockUserMutationResult = NonNullable<Awaited<ReturnType<typeof unlockUser>>>
+
+    export type UnlockUserMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Clear account lockout for a user
+ */
+export const useUnlockUser = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof unlockUser>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof unlockUser>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getUnlockUserMutationOptions(options));
+    }
+
 export const getListAllDocumentsUrl = () => {
 
 

@@ -45,6 +45,8 @@ export interface User {
   email: string;
   role: UserRole;
   status: UserStatus;
+  /** @nullable */
+  lockedUntil?: string | null;
   createdAt: string;
   /** @nullable */
   documentCount?: number | null;
