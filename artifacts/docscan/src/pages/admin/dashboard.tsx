@@ -1,132 +1,192 @@
 import { useGetDashboardStats } from '@workspace/api-client-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Users, FileText, Send, AlertCircle, Activity, FileCheck } from 'lucide-react';
+import { Users, FileText, Send, AlertCircle, TrendingUp, TrendingDown, Clock } from 'lucide-react';
 import { format } from 'date-fns';
-import { motion } from 'framer-motion';
 
 export default function Dashboard() {
   const { data: stats, isLoading } = useGetDashboardStats();
 
   if (isLoading || !stats) {
     return (
-      <div className="space-y-8 animate-pulse">
-        <div>
-          <div className="h-8 w-48 bg-muted rounded mb-2"></div>
-          <div className="h-4 w-64 bg-muted rounded"></div>
-        </div>
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <Card key={i} className="border-border shadow-sm">
-              <CardHeader className="h-16 pb-2" />
-              <CardContent className="h-16" />
-            </Card>
+      <div className="space-y-6 animate-pulse">
+        <div className="h-8 w-48 bg-muted rounded mb-2"></div>
+        <div className="grid gap-6 md:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Card key={i} className="h-28" />
           ))}
         </div>
-        <Card className="h-[400px] border-border shadow-sm" />
       </div>
     );
   }
 
-  const statCards = [
-    { title: "Total Users", value: stats.totalUsers, icon: Users, desc: `${stats.activeUsers} active accounts`, trend: "neutral" },
-    { title: "Total Documents", value: stats.totalDocuments, icon: FileText, desc: "Lifetime system volume", trend: "neutral" },
-    { title: "Docs Today", value: stats.documentsToday || 0, icon: FileCheck, desc: "Processed since 00:00", trend: "positive" },
-    { title: "Emails Sent", value: stats.totalEmailsSent, icon: Send, desc: "Successful deliveries", trend: "positive" },
-    { title: "Failed Deliveries", value: stats.failedEmails, icon: AlertCircle, desc: "Require attention", trend: "negative", color: "text-destructive", bg: "bg-destructive/10" },
-  ];
-
-  const container = {
-    hidden: { opacity: 0 },
-    show: {
-      opacity: 1,
-      transition: { staggerChildren: 0.1 }
-    }
-  };
-
-  const item = {
-    hidden: { opacity: 0, y: 20 },
-    show: { opacity: 1, y: 0, transition: { type: "spring" as const, stiffness: 300, damping: 24 } }
-  };
-
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">System Overview</h1>
-        <p className="text-muted-foreground mt-2">Real-time metrics and recent mailroom activity.</p>
+    <div className="space-y-6">
+      <div className="flex justify-between items-end">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">Overview</h1>
+          <p className="text-muted-foreground text-sm mt-1">Welcome back. Here's what's happening today.</p>
+        </div>
+        <div className="hidden sm:block text-xs font-semibold text-muted-foreground bg-card border border-border px-3 py-1.5 rounded-md">
+          {format(new Date(), 'MMMM d, yyyy')}
+        </div>
       </div>
 
-      <motion.div 
-        variants={container}
-        initial="hidden"
-        animate="show"
-        className="grid gap-4 md:grid-cols-3 lg:grid-cols-5"
-      >
-        {statCards.map((stat, i) => {
-          const Icon = stat.icon;
-          return (
-            <motion.div variants={item} key={i}>
-              <Card className="h-full border-border shadow-sm hover:shadow-md transition-shadow">
-                <CardHeader className="flex flex-row items-center justify-between pb-2">
-                  <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                    {stat.title}
-                  </CardTitle>
-                  <div className={`p-2 rounded-md ${stat.bg || 'bg-muted'}`}>
-                    <Icon className={`w-4 h-4 ${stat.color || 'text-foreground'}`} />
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className={`text-3xl font-bold ${stat.color || 'text-foreground'} tracking-tight`}>
-                    {stat.value.toLocaleString()}
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-1 font-medium">{stat.desc}</p>
-                </CardContent>
-              </Card>
-            </motion.div>
-          );
-        })}
-      </motion.div>
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2 pt-5">
+            <CardTitle className="text-sm font-semibold text-muted-foreground">Total Users</CardTitle>
+            <Users className="w-4 h-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold text-foreground">{stats.totalUsers}</div>
+            <div className="flex items-center text-xs text-primary font-medium mt-1">
+              <TrendingUp className="w-3 h-3 mr-1" />
+              Active directory
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2 pt-5">
+            <CardTitle className="text-sm font-semibold text-muted-foreground">Documents Today</CardTitle>
+            <FileText className="w-4 h-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold text-foreground">{stats.documentsToday || 0}</div>
+            <div className="flex items-center text-xs text-primary font-medium mt-1">
+              <TrendingUp className="w-3 h-3 mr-1" />
+              Volume steady
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2 pt-5">
+            <CardTitle className="text-sm font-semibold text-muted-foreground">Emails Sent</CardTitle>
+            <Send className="w-4 h-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold text-foreground">{stats.totalEmailsSent}</div>
+            <div className="flex items-center text-xs text-primary font-medium mt-1">
+              <TrendingUp className="w-3 h-3 mr-1" />
+              All-time count
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2 pt-5">
+            <CardTitle className="text-sm font-semibold text-muted-foreground">Failed Emails</CardTitle>
+            <AlertCircle className="w-4 h-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold text-foreground">{stats.failedEmails}</div>
+            <div className="flex items-center text-xs text-destructive font-medium mt-1">
+              <TrendingDown className="w-3 h-3 mr-1" />
+              Requires attention
+            </div>
+          </CardContent>
+        </Card>
+      </div>
 
-      <div className="grid gap-6 md:grid-cols-2">
-        <motion.div variants={item} initial="hidden" animate="show" className="col-span-2">
-          <Card className="border-border shadow-sm">
-            <CardHeader className="flex flex-row items-center gap-3 border-b border-border bg-muted/20 pb-4 pt-5">
-              <div className="bg-primary/10 p-2 rounded-md">
-                <Activity className="w-5 h-5 text-primary" />
-              </div>
-              <CardTitle className="text-lg">Recent Audit Feed</CardTitle>
+      <div className="grid gap-6 lg:grid-cols-3">
+        <div className="lg:col-span-2 space-y-6">
+          {/* Main Chart Area (placeholder to match layout concept) */}
+          <Card className="h-[300px] flex flex-col">
+            <CardHeader className="pb-0">
+              <CardTitle className="text-base font-semibold">Volume Trend</CardTitle>
             </CardHeader>
-            <CardContent className="p-0">
-              {stats.recentActivity.length === 0 ? (
-                <div className="text-center text-muted-foreground py-12 text-sm font-medium">No system activity recorded yet.</div>
-              ) : (
-                <div className="divide-y divide-border">
-                  {stats.recentActivity.map((log) => (
-                    <div key={log.id} className="p-4 hover:bg-muted/10 transition-colors flex gap-4">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
-                          <p className="text-sm font-semibold text-foreground truncate">
-                            {log.userName || 'System'}
-                          </p>
-                          <time className="text-xs font-mono text-muted-foreground bg-muted px-2 py-0.5 rounded">
-                            {format(new Date(log.createdAt), 'MMM d, HH:mm')}
-                          </time>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="inline-flex items-center rounded-md bg-secondary px-2 py-0.5 text-xs font-medium text-secondary-foreground">
-                            {log.action}
-                          </span>
-                          {log.details && (
-                            <span className="text-sm text-muted-foreground truncate">{log.details}</span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+            <CardContent className="flex-1 flex items-end pb-6 pt-4 gap-2">
+              {Array.from({ length: 30 }).map((_, i) => {
+                const height = Math.random() * 80 + 20;
+                return (
+                  <div key={i} className="flex-1 bg-primary rounded-t-sm" style={{ height: `${height}%` }} />
+                );
+              })}
             </CardContent>
           </Card>
-        </motion.div>
+          
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base font-semibold flex items-center gap-2">
+                <Clock className="w-4 h-4 text-muted-foreground" /> Recent Activity
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="divide-y divide-border">
+                {stats.recentActivity.length === 0 ? (
+                  <div className="p-6 text-center text-muted-foreground text-sm">No recent activity.</div>
+                ) : (
+                  stats.recentActivity.slice(0, 5).map((log) => (
+                    <div key={log.id} className="p-4 hover:bg-muted/30 transition-colors flex items-center justify-between">
+                      <div className="flex flex-col gap-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold text-sm">{log.userName || 'System'}</span>
+                          <span className="text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded-full font-medium capitalize">
+                            {log.action.replace('_', ' ')}
+                          </span>
+                        </div>
+                        {log.details && <span className="text-xs text-muted-foreground">{log.details}</span>}
+                      </div>
+                      <div className="text-xs text-muted-foreground font-mono">
+                        {format(new Date(log.createdAt), 'HH:mm')}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+        
+        <div className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base font-semibold">Quick Actions</CardTitle>
+            </CardHeader>
+            <CardContent className="grid grid-cols-2 gap-3">
+              {[
+                { icon: Users, label: "Manage Users" },
+                { icon: FileText, label: "Archive" },
+                { icon: Send, label: "Dispatch" },
+                { icon: AlertCircle, label: "Alerts" },
+              ].map((action, i) => (
+                <div key={i} className="bg-card border border-border p-4 rounded-lg flex flex-col items-center justify-center gap-2 hover:border-primary hover:text-primary transition-colors cursor-pointer text-muted-foreground group">
+                  <action.icon className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                  <span className="text-xs font-semibold text-foreground">{action.label}</span>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+
+          <Card className="border-destructive/20">
+            <CardHeader className="bg-destructive/5 border-b border-destructive/10">
+              <CardTitle className="text-base font-semibold text-destructive flex items-center gap-2">
+                <AlertCircle className="w-4 h-4" /> Active Alerts
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+               <div className="p-4 border-b border-border hover:bg-muted/30 transition-colors">
+                  <div className="flex items-start justify-between">
+                    <div className="flex flex-col">
+                      <span className="text-sm font-semibold">Delivery Failure</span>
+                      <span className="text-xs text-muted-foreground mt-0.5">SMTP Timeout on Document #402</span>
+                    </div>
+                    <span className="text-[10px] font-bold bg-destructive/10 text-destructive px-1.5 py-0.5 rounded uppercase">High</span>
+                  </div>
+               </div>
+               <div className="p-4 border-b border-border hover:bg-muted/30 transition-colors">
+                  <div className="flex items-start justify-between">
+                    <div className="flex flex-col">
+                      <span className="text-sm font-semibold">Rate Limit Warning</span>
+                      <span className="text-xs text-muted-foreground mt-0.5">Approaching hourly quota</span>
+                    </div>
+                    <span className="text-[10px] font-bold bg-orange-100 text-orange-800 px-1.5 py-0.5 rounded uppercase">Med</span>
+                  </div>
+               </div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </div>
   );

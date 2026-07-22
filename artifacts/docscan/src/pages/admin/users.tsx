@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useListUsers, useCreateUser, useUpdateUser, useDeleteUser, useUnlockUser, getListUsersQueryKey, UserInput, UserUpdate } from '@workspace/api-client-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
-import { Plus, MoreHorizontal, ShieldAlert, Edit, Trash, Lock, LockOpen, Search } from 'lucide-react';
+import { Plus, MoreHorizontal, Edit, Trash, Lock, LockOpen, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -29,12 +29,14 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { SortableHeader } from '@/components/sortable-header';
+import { PaginationControls } from '@/components/pagination-controls';
+import { TooltipProvider } from '@radix-ui/react-tooltip';
 
 const userSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -44,11 +46,20 @@ const userSchema = z.object({
   status: z.enum(["active", "inactive"]).optional(),
 });
 
+const PAGE_SIZE = 10;
+
 export default function Users() {
   const { data: users, isLoading } = useListUsers();
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  
   const [search, setSearch] = useState("");
+  const [roleFilter, setRoleFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
+  
+  const [sortKey, setSortKey] = useState<string>("createdAt");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  const [page, setPage] = useState(1);
   
   const createUser = useCreateUser();
   const updateUser = useUpdateUser();
@@ -69,10 +80,49 @@ export default function Users() {
     },
   });
 
-  const filteredUsers = users?.filter(u => 
-    u.name.toLowerCase().includes(search.toLowerCase()) || 
-    u.email.toLowerCase().includes(search.toLowerCase())
-  );
+  // Client-side filtering
+  const filtered = useMemo(() => {
+    return (users ?? []).filter(u => {
+      const matchSearch = u.name.toLowerCase().includes(search.toLowerCase()) || u.email.toLowerCase().includes(search.toLowerCase());
+      const matchRole = roleFilter === "all" || u.role === roleFilter;
+      const matchStatus = statusFilter === "all" || u.status === statusFilter;
+      return matchSearch && matchRole && matchStatus;
+    });
+  }, [users, search, roleFilter, statusFilter]);
+
+  // Client-side sorting
+  const sorted = useMemo(() => {
+    return [...filtered].sort((a, b) => {
+      let aVal: any = a[sortKey as keyof typeof a];
+      let bVal: any = b[sortKey as keyof typeof b];
+      
+      if (typeof aVal === 'string') aVal = aVal.toLowerCase();
+      if (typeof bVal === 'string') bVal = bVal.toLowerCase();
+      
+      if (aVal < bVal) return sortDir === "asc" ? -1 : 1;
+      if (aVal > bVal) return sortDir === "asc" ? 1 : -1;
+      return 0;
+    });
+  }, [filtered, sortKey, sortDir]);
+
+  // Pagination
+  const paginated = useMemo(() => {
+    return sorted.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  }, [sorted, page]);
+
+  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+
+  // Reset page when filters change
+  useEffect(() => setPage(1), [search, roleFilter, statusFilter, sortKey, sortDir]);
+
+  const handleSort = (key: string) => {
+    if (sortKey === key) {
+      setSortDir(sortDir === "asc" ? "desc" : "asc");
+    } else {
+      setSortKey(key);
+      setSortDir("asc");
+    }
+  };
 
   const handleOpenCreate = () => {
     setEditingUserId(null);
@@ -165,150 +215,188 @@ export default function Users() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Directory</h1>
-          <p className="text-muted-foreground mt-2">Manage access controls and account status.</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="relative w-full sm:w-64">
+        <h1 className="text-2xl font-bold tracking-tight">User Management</h1>
+        <Button onClick={handleOpenCreate} className="h-9">
+          <Plus className="w-4 h-4 mr-2" />
+          New User
+        </Button>
+      </div>
+
+      <div className="bg-card border border-border rounded-lg shadow-sm flex flex-col">
+        <div className="p-4 border-b border-border flex flex-col sm:flex-row gap-4 items-center">
+          <div className="relative w-full sm:max-w-xs">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input 
               placeholder="Search users..." 
-              className="pl-9 h-10 bg-card border-border"
+              className="pl-9 h-9"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
-          <Button onClick={handleOpenCreate} className="h-10">
-            <Plus className="w-4 h-4 mr-2" />
-            New User
-          </Button>
-        </div>
-      </div>
+          
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <Select value={roleFilter} onValueChange={setRoleFilter}>
+              <SelectTrigger className="h-9 w-full sm:w-[130px]">
+                <SelectValue placeholder="Role" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Roles</SelectItem>
+                <SelectItem value="admin">Admin</SelectItem>
+                <SelectItem value="user">User</SelectItem>
+              </SelectContent>
+            </Select>
 
-      <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden">
-        <Table>
-          <TableHeader className="bg-muted/30">
-            <TableRow>
-              <TableHead className="font-semibold text-foreground">Account</TableHead>
-              <TableHead className="font-semibold text-foreground">Role</TableHead>
-              <TableHead className="font-semibold text-foreground">Status</TableHead>
-              <TableHead className="font-semibold text-foreground">Scans</TableHead>
-              <TableHead className="font-semibold text-foreground">Last Active</TableHead>
-              <TableHead className="w-[50px]"></TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {isLoading ? (
-              <TableRow><TableCell colSpan={6} className="text-center py-12 text-muted-foreground font-medium">Loading directory...</TableCell></TableRow>
-            ) : filteredUsers?.length === 0 ? (
-              <TableRow><TableCell colSpan={6} className="text-center py-12 text-muted-foreground font-medium">No users match your criteria.</TableCell></TableRow>
-            ) : filteredUsers?.map((user) => (
-              <TableRow key={user.id} className="hover:bg-muted/20 transition-colors">
-                <TableCell>
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-md bg-primary/10 border border-primary/20 flex items-center justify-center text-primary font-bold text-xs">
-                      {user.name.charAt(0).toUpperCase()}
-                    </div>
-                    <div className="flex flex-col">
-                      <span className="font-semibold text-foreground">{user.name}</span>
-                      <span className="text-xs text-muted-foreground font-mono mt-0.5">{user.email}</span>
-                    </div>
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <Badge variant={user.role === 'admin' ? 'default' : 'secondary'} className={`uppercase text-[10px] tracking-wider font-semibold ${user.role === 'admin' ? 'bg-primary text-primary-foreground' : ''}`}>
-                    {user.role}
-                  </Badge>
-                </TableCell>
-                <TableCell>
-                  <div className="flex flex-col items-start gap-1.5">
-                    <Badge variant="outline" className={`px-2 py-0.5 text-[10px] uppercase tracking-wider font-semibold border-0 ${user.status === 'active' ? "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-400" : "bg-muted text-muted-foreground"}`}>
-                      {user.status}
-                    </Badge>
-                    {user.lockedUntil && new Date(user.lockedUntil) > new Date() && (
-                      <Badge variant="outline" className="gap-1 px-1.5 py-0.5 text-[10px] uppercase tracking-wider font-semibold bg-destructive/10 text-destructive border-0">
-                        <Lock className="w-3 h-3" /> Locked
-                      </Badge>
-                    )}
-                  </div>
-                </TableCell>
-                <TableCell className="font-mono text-sm">{user.documentCount || 0}</TableCell>
-                <TableCell className="text-sm text-muted-foreground font-mono">
-                  {user.lastActivity ? format(new Date(user.lastActivity), 'MMM d, yyyy') : 'Never'}
-                </TableCell>
-                <TableCell>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" className="h-8 w-8 p-0 hover:bg-muted">
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-48 font-medium">
-                      <DropdownMenuItem onClick={() => handleOpenEdit(user)} className="cursor-pointer">
-                        <Edit className="w-4 h-4 mr-2 text-muted-foreground" /> Edit Profile
-                      </DropdownMenuItem>
-                      {user.lockedUntil && new Date(user.lockedUntil) > new Date() && (
-                        <DropdownMenuItem onClick={() => handleUnlock(user.id)} className="cursor-pointer">
-                          <LockOpen className="w-4 h-4 mr-2 text-green-600" /> Unlock Account
-                        </DropdownMenuItem>
-                      )}
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem onClick={() => handleDelete(user.id, user.name)} className="text-destructive cursor-pointer focus:bg-destructive/10 focus:text-destructive">
-                        <Trash className="w-4 h-4 mr-2" /> Delete Account
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </TableCell>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="h-9 w-full sm:w-[130px]">
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="active">Active</SelectItem>
+                <SelectItem value="inactive">Inactive</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader className="bg-muted/40 hover:bg-muted/40">
+              <TableRow>
+                <TableHead>
+                  <SortableHeader label="User" sortKey="name" currentSortKey={sortKey} currentSortDir={sortDir} onSort={handleSort} />
+                </TableHead>
+                <TableHead>
+                  <SortableHeader label="Role" sortKey="role" currentSortKey={sortKey} currentSortDir={sortDir} onSort={handleSort} />
+                </TableHead>
+                <TableHead>
+                  <SortableHeader label="Status" sortKey="status" currentSortKey={sortKey} currentSortDir={sortDir} onSort={handleSort} />
+                </TableHead>
+                <TableHead>
+                  <SortableHeader label="Created" sortKey="createdAt" currentSortKey={sortKey} currentSortDir={sortDir} onSort={handleSort} />
+                </TableHead>
+                <TableHead className="w-[50px]"></TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHeader>
+            <TableBody>
+              {isLoading ? (
+                <TableRow><TableCell colSpan={5} className="text-center py-12 text-muted-foreground">Loading users...</TableCell></TableRow>
+              ) : paginated.length === 0 ? (
+                <TableRow><TableCell colSpan={5} className="text-center py-12 text-muted-foreground">No users match your criteria.</TableCell></TableRow>
+              ) : paginated.map((user) => (
+                <TableRow key={user.id} className="hover:bg-muted/20">
+                  <TableCell>
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-semibold text-xs border border-primary/20">
+                        {user.name.charAt(0).toUpperCase()}
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="font-semibold text-foreground text-sm">{user.name}</span>
+                        <span className="text-xs text-muted-foreground">{user.email}</span>
+                      </div>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant="outline" className={`uppercase text-[10px] font-bold border-0 ${user.role === 'admin' ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'}`}>
+                      {user.role}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline" className={`px-2 text-[10px] uppercase font-bold border-0 ${user.status === 'active' ? "bg-green-500/10 text-green-600" : "bg-muted text-muted-foreground"}`}>
+                        {user.status}
+                      </Badge>
+                      {user.lockedUntil && new Date(user.lockedUntil) > new Date() && (
+                        <TooltipProvider delayDuration={100}>
+                          <Badge variant="outline" className="px-1 bg-destructive/10 text-destructive border-0">
+                            <Lock className="w-3 h-3" />
+                          </Badge>
+                        </TooltipProvider>
+                      )}
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-sm text-muted-foreground">
+                    {format(new Date(user.createdAt), 'MMM d, yyyy')}
+                  </TableCell>
+                  <TableCell>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" className="h-8 w-8 p-0">
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => handleOpenEdit(user)}>
+                          <Edit className="w-4 h-4 mr-2" /> Edit User
+                        </DropdownMenuItem>
+                        {user.lockedUntil && new Date(user.lockedUntil) > new Date() && (
+                          <DropdownMenuItem onClick={() => handleUnlock(user.id)}>
+                            <LockOpen className="w-4 h-4 mr-2" /> Unlock
+                          </DropdownMenuItem>
+                        )}
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onClick={() => handleDelete(user.id, user.name)} className="text-destructive">
+                          <Trash className="w-4 h-4 mr-2" /> Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+        
+        <PaginationControls 
+          page={page} 
+          totalPages={totalPages} 
+          totalItems={filtered.length} 
+          pageSize={PAGE_SIZE} 
+          onPageChange={setPage} 
+        />
       </div>
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle className="text-xl">{editingUserId ? 'Edit Profile' : 'New User'}</DialogTitle>
+            <DialogTitle>{editingUserId ? 'Edit User' : 'Create User'}</DialogTitle>
           </DialogHeader>
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5 pt-4">
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 pt-4">
               <FormField control={form.control} name="name" render={({ field }) => (
                 <FormItem>
-                  <FormLabel className="text-xs uppercase tracking-wider font-semibold text-muted-foreground">Full Name</FormLabel>
-                  <FormControl><Input className="bg-muted/50" {...field} /></FormControl>
+                  <FormLabel className="text-xs uppercase font-semibold text-muted-foreground">Full Name</FormLabel>
+                  <FormControl><Input {...field} /></FormControl>
                   <FormMessage />
                 </FormItem>
               )} />
               <FormField control={form.control} name="email" render={({ field }) => (
                 <FormItem>
-                  <FormLabel className="text-xs uppercase tracking-wider font-semibold text-muted-foreground">Email Address</FormLabel>
-                  <FormControl><Input className="bg-muted/50 font-mono text-sm" {...field} disabled={!!editingUserId} /></FormControl>
+                  <FormLabel className="text-xs uppercase font-semibold text-muted-foreground">Email</FormLabel>
+                  <FormControl><Input {...field} disabled={!!editingUserId} /></FormControl>
                   <FormMessage />
                 </FormItem>
               )} />
               <FormField control={form.control} name="password" render={({ field }) => (
                 <FormItem>
-                  <FormLabel className="text-xs uppercase tracking-wider font-semibold text-muted-foreground">
-                    {editingUserId ? "Reset Password (Optional)" : "Initial Password"}
+                  <FormLabel className="text-xs uppercase font-semibold text-muted-foreground">
+                    {editingUserId ? "Reset Password" : "Password"}
                   </FormLabel>
-                  <FormControl><Input type="password" placeholder={editingUserId ? "Leave blank to keep current" : ""} className="bg-muted/50 font-mono text-sm" {...field} /></FormControl>
+                  <FormControl><Input type="password" placeholder={editingUserId ? "Leave blank to keep current" : ""} {...field} /></FormControl>
                   <FormMessage />
                 </FormItem>
               )} />
               <div className="grid grid-cols-2 gap-4">
                 <FormField control={form.control} name="role" render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="text-xs uppercase tracking-wider font-semibold text-muted-foreground">System Role</FormLabel>
+                    <FormLabel className="text-xs uppercase font-semibold text-muted-foreground">Role</FormLabel>
                     <Select onValueChange={field.onChange} defaultValue={field.value}>
                       <FormControl>
-                        <SelectTrigger className="bg-muted/50">
-                          <SelectValue placeholder="Select a role" />
-                        </SelectTrigger>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
                       </FormControl>
                       <SelectContent>
                         <SelectItem value="user">User</SelectItem>
-                        <SelectItem value="admin">Administrator</SelectItem>
+                        <SelectItem value="admin">Admin</SelectItem>
                       </SelectContent>
                     </Select>
                     <FormMessage />
@@ -317,12 +405,10 @@ export default function Users() {
                 {editingUserId && (
                   <FormField control={form.control} name="status" render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="text-xs uppercase tracking-wider font-semibold text-muted-foreground">Status</FormLabel>
+                      <FormLabel className="text-xs uppercase font-semibold text-muted-foreground">Status</FormLabel>
                       <Select onValueChange={field.onChange} defaultValue={field.value}>
                         <FormControl>
-                          <SelectTrigger className="bg-muted/50">
-                            <SelectValue placeholder="Select status" />
-                          </SelectTrigger>
+                          <SelectTrigger><SelectValue /></SelectTrigger>
                         </FormControl>
                         <SelectContent>
                           <SelectItem value="active">Active</SelectItem>
@@ -334,9 +420,9 @@ export default function Users() {
                   )} />
                 )}
               </div>
-              <DialogFooter className="pt-6">
+              <DialogFooter className="pt-4">
                 <Button type="button" variant="ghost" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
-                <Button type="submit" className="px-8">{editingUserId ? 'Save Changes' : 'Create User'}</Button>
+                <Button type="submit">{editingUserId ? 'Save' : 'Create'}</Button>
               </DialogFooter>
             </form>
           </Form>

@@ -1,0 +1,2 @@
+- [Design system](design-system.md) — DocScan uses warm orange primary + dark navy sidebar; Inter UI font, JetBrains Mono for data strings (IDs, IPs, timestamps)
+- [Table pattern](table-pattern.md) — All admin tables use client-side filter → sort → paginate with SortableHeader + PaginationControls shared components

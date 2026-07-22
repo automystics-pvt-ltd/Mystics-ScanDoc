@@ -12,10 +12,13 @@ import {
   LogOut,
   ScanText,
   ShieldAlert,
-  ChevronRight
+  Search,
+  Bell,
+  Menu
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { motion } from 'framer-motion';
 
 export function Layout({ children }: { children: React.ReactNode }) {
@@ -43,103 +46,136 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
   const navItems = user?.role === 'admin' ? adminNav : userNav;
 
-  return (
-    <div className="flex min-h-[100dvh] bg-background text-foreground selection:bg-primary/20 selection:text-primary">
-      {/* Sidebar */}
-      <aside className="w-64 border-r border-sidebar-border bg-sidebar flex-col hidden md:flex shrink-0">
-        <div className="h-16 flex items-center px-6 border-b border-sidebar-border/50">
-          <div className="flex items-center gap-2.5">
-            <div className="bg-primary p-1.5 rounded-md shadow-[0_0_15px_rgba(var(--primary),0.5)]">
-              <ScanText className="w-5 h-5 text-primary-foreground" />
-            </div>
-            <span className="font-bold text-lg text-sidebar-foreground tracking-tight">DocScan</span>
+  const currentNavItem = navItems.find(i => location === i.href || location.startsWith(`${i.href}/`));
+  const breadcrumbSection = user?.role === 'admin' ? 'Admin' : 'Workspace';
+  const breadcrumbPage = currentNavItem?.label || 'Overview';
+
+  const NavContent = () => (
+    <>
+      <div className="h-16 flex items-center px-6 border-b border-sidebar-border/50">
+        <div className="flex items-center gap-3">
+          <div className="bg-primary p-1.5 rounded flex items-center justify-center">
+            <ScanText className="w-5 h-5 text-primary-foreground" />
+          </div>
+          <div className="flex flex-col">
+            <span className="font-bold text-lg text-sidebar-foreground leading-none">DocScan</span>
+            <span className="text-[9px] font-semibold text-sidebar-foreground/60 tracking-[0.2em]">ENTERPRISE</span>
           </div>
         </div>
-        
-        <div className="flex-1 py-6 px-3 space-y-1 overflow-y-auto custom-scrollbar">
-          <div className="px-3 pb-3 text-[10px] font-semibold text-sidebar-foreground/40 uppercase tracking-widest">
+      </div>
+      
+      <div className="flex-1 py-6 px-4 space-y-8 overflow-y-auto custom-scrollbar">
+        <div className="space-y-1">
+          <div className="px-2 pb-2 text-xs font-semibold text-sidebar-foreground/40 uppercase tracking-widest">
             {user?.role === 'admin' ? 'Administration' : 'Workspace'}
           </div>
-          <div className="space-y-0.5">
-            {navItems.map((item) => {
-              const Icon = item.icon;
-              const isActive = location === item.href || location.startsWith(`${item.href}/`);
-              return (
-                <Link 
-                  key={item.href} 
-                  href={item.href}
-                  className={cn(
-                    "group flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-all relative overflow-hidden",
-                    isActive 
-                      ? "text-sidebar-primary-foreground bg-sidebar-primary shadow-sm" 
-                      : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-                  )}
-                >
-                  <Icon className={cn("w-4 h-4 shrink-0 transition-transform", isActive ? "scale-110" : "group-hover:scale-110")} />
-                  <span className="z-10">{item.label}</span>
-                  {isActive && (
-                    <motion.div 
-                      layoutId="activeNav" 
-                      className="absolute inset-0 bg-sidebar-primary opacity-10" 
-                      transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                    />
-                  )}
-                </Link>
-              );
-            })}
-          </div>
+          {navItems.map((item) => {
+            const Icon = item.icon;
+            const isActive = location === item.href || location.startsWith(`${item.href}/`);
+            return (
+              <Link 
+                key={item.href} 
+                href={item.href}
+                className={cn(
+                  "group flex items-center gap-3 px-3 py-2 rounded text-sm font-medium transition-colors relative",
+                  isActive 
+                    ? "text-sidebar-foreground bg-sidebar-accent" 
+                    : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+                )}
+              >
+                {isActive && (
+                  <motion.div 
+                    layoutId="activeNavIndicator" 
+                    className="absolute left-0 top-0 bottom-0 w-1 bg-primary rounded-r" 
+                  />
+                )}
+                <Icon className={cn("w-4 h-4 shrink-0 transition-colors", isActive ? "text-primary" : "group-hover:text-sidebar-foreground")} />
+                <span>{item.label}</span>
+              </Link>
+            );
+          })}
         </div>
+      </div>
 
-        <div className="p-4 border-t border-sidebar-border/50">
-          <div className="bg-sidebar-accent/50 rounded-lg p-3 border border-sidebar-border/50 mb-3 flex items-center gap-3">
-            <div className="w-9 h-9 rounded-md bg-sidebar-accent flex items-center justify-center text-sidebar-foreground font-semibold border border-sidebar-border shadow-sm">
-              {user?.name?.charAt(0).toUpperCase() || 'U'}
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="text-sm font-medium text-sidebar-foreground truncate">{user?.name}</div>
-              <div className="text-xs text-sidebar-foreground/50 truncate capitalize flex items-center gap-1">
-                <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
-                {user?.role}
-              </div>
-            </div>
+      <div className="p-4 border-t border-sidebar-border/50">
+        <div className="flex items-center gap-3 p-2">
+          <div className="w-9 h-9 rounded-full bg-sidebar-accent border border-sidebar-border flex items-center justify-center text-sidebar-foreground font-semibold shrink-0">
+            {user?.name?.charAt(0).toUpperCase() || 'U'}
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="text-sm font-medium text-sidebar-foreground truncate">{user?.name}</div>
+            <div className="text-xs text-sidebar-foreground/50 truncate capitalize">{user?.role}</div>
           </div>
           <Button 
             variant="ghost" 
-            className="w-full justify-start text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent h-9 font-medium"
+            size="icon"
+            className="text-sidebar-foreground/50 hover:text-sidebar-foreground hover:bg-sidebar-accent"
             onClick={handleLogout}
+            title="Sign out"
           >
-            <LogOut className="w-4 h-4 mr-2" />
-            Sign out
+            <LogOut className="w-4 h-4" />
           </Button>
         </div>
+      </div>
+    </>
+  );
+
+  return (
+    <div className="flex min-h-[100dvh] bg-background text-foreground">
+      {/* Desktop Sidebar */}
+      <aside className="w-[260px] bg-sidebar flex-col hidden md:flex shrink-0 shadow-[4px_0_24px_rgba(0,0,0,0.02)] z-20">
+        <NavContent />
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col min-w-0 overflow-hidden relative bg-[url('/noise.png')] bg-repeat opacity-[0.99] mix-blend-multiply">
-        {/* Subtle radial gradient background effect */}
-        <div className="absolute top-0 left-0 w-full h-[500px] bg-gradient-to-b from-primary/5 to-transparent pointer-events-none -z-10" />
-        
-        {/* Mobile Header */}
-        <header className="md:hidden h-14 border-b border-border bg-card/80 backdrop-blur-md flex items-center justify-between px-4 sticky top-0 z-50">
-          <div className="flex items-center gap-2">
-            <div className="bg-primary p-1 rounded">
-              <ScanText className="w-4 h-4 text-primary-foreground" />
+      <main className="flex-1 flex flex-col min-w-0 h-[100dvh]">
+        {/* Top Content Bar */}
+        <header className="h-16 border-b border-border bg-card flex items-center justify-between px-4 md:px-8 shrink-0 z-10">
+          <div className="flex items-center gap-4">
+            <Sheet>
+              <SheetTrigger asChild>
+                <Button variant="ghost" size="icon" className="md:hidden">
+                  <Menu className="w-5 h-5" />
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="left" className="w-[260px] p-0 bg-sidebar border-r-0 flex flex-col">
+                <NavContent />
+              </SheetContent>
+            </Sheet>
+
+            <div className="hidden md:flex items-center text-sm font-medium text-muted-foreground">
+              <span>{breadcrumbSection}</span>
+              <span className="mx-2 text-muted-foreground/40">/</span>
+              <span className="text-foreground">{breadcrumbPage}</span>
             </div>
-            <span className="font-bold text-foreground tracking-tight">DocScan</span>
           </div>
-          <Button variant="ghost" size="icon" onClick={handleLogout} className="h-8 w-8">
-            <LogOut className="w-4 h-4" />
-          </Button>
+
+          <div className="flex-1 max-w-md mx-4 hidden sm:block relative">
+            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <input 
+              type="text" 
+              placeholder="Search everything..." 
+              className="w-full h-9 bg-background border border-border rounded-md pl-9 pr-4 text-sm focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary transition-all"
+            />
+          </div>
+
+          <div className="flex items-center gap-4">
+            <div className="hidden sm:flex items-center px-2.5 py-1 rounded-full bg-background border border-border text-xs font-semibold capitalize text-muted-foreground">
+              <span className="w-1.5 h-1.5 rounded-full bg-primary mr-1.5" />
+              {user?.role}
+            </div>
+            <Button variant="ghost" size="icon" className="text-muted-foreground relative h-9 w-9">
+              <Bell className="w-4 h-4" />
+              <span className="absolute top-2 right-2 w-1.5 h-1.5 rounded-full bg-primary" />
+            </Button>
+            <div className="w-8 h-8 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-primary font-bold text-sm">
+              {user?.name?.charAt(0).toUpperCase() || 'U'}
+            </div>
+          </div>
         </header>
 
-        <div className="flex-1 overflow-y-auto custom-scrollbar">
-          <div className="p-4 md:p-8 max-w-7xl mx-auto w-full min-h-full flex flex-col animate-slide-down-fade">
-            {/* Breadcrumb pseudo-effect for deeper immersion */}
-            <div className="hidden md:flex items-center text-xs font-medium text-muted-foreground mb-6 uppercase tracking-wider">
-              <span>{user?.role === 'admin' ? 'Admin' : 'Workspace'}</span>
-              <ChevronRight className="w-3 h-3 mx-2 opacity-50" />
-              <span className="text-foreground">{navItems.find(i => location.startsWith(i.href))?.label || 'Overview'}</span>
-            </div>
+        <div className="flex-1 overflow-y-auto custom-scrollbar p-4 md:p-8">
+          <div className="max-w-7xl mx-auto w-full animate-slide-down-fade pb-12">
             {children}
           </div>
         </div>
