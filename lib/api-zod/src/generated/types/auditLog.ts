@@ -14,6 +14,8 @@ export interface AuditLog {
   /** @nullable */
   userName?: string | null;
   /** @nullable */
+  userEmail?: string | null;
+  /** @nullable */
   details?: string | null;
   /** @nullable */
   ipAddress?: string | null;

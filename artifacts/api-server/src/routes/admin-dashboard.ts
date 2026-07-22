@@ -46,24 +46,29 @@ router.get("/admin/dashboard", requireAuth, requireAdmin, async (_req, res): Pro
   });
 });
 
-// GET /admin/audit-logs
-router.get("/admin/audit-logs", requireAuth, requireAdmin, async (_req, res): Promise<void> => {
-  const logs = await db
+// GET /admin/audit-logs?action=login_failed&limit=200
+router.get("/admin/audit-logs", requireAuth, requireAdmin, async (req, res): Promise<void> => {
+  const actionFilter = typeof req.query.action === "string" ? req.query.action : undefined;
+  const limit = Math.min(Number(req.query.limit) || 200, 500);
+
+  const rows = await db
     .select({
       id: auditLogsTable.id,
       action: auditLogsTable.action,
       userId: auditLogsTable.userId,
       userName: usersTable.name,
+      userEmail: usersTable.email,
       details: auditLogsTable.details,
       ipAddress: auditLogsTable.ipAddress,
       createdAt: auditLogsTable.createdAt,
     })
     .from(auditLogsTable)
     .leftJoin(usersTable, eq(auditLogsTable.userId, usersTable.id))
+    .where(actionFilter ? eq(auditLogsTable.action, actionFilter) : undefined)
     .orderBy(desc(auditLogsTable.createdAt))
-    .limit(100);
+    .limit(limit);
 
-  res.json(logs);
+  res.json(rows);
 });
 
 export default router;

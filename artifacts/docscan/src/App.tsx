@@ -18,6 +18,7 @@ import Documents from '@/pages/admin/documents';
 import EmailLogs from '@/pages/admin/email-logs';
 import Recipients from '@/pages/admin/recipients';
 import Settings from '@/pages/admin/settings';
+import AuditLogsPage from '@/pages/admin/audit-logs';
 
 // Configure the fetch client to inject the JWT token
 setAuthTokenGetter(() => {
@@ -87,6 +88,13 @@ function Router() {
         <AuthGuard requireAdmin>
           <Layout>
             <Recipients />
+          </Layout>
+        </AuthGuard>
+      </Route>
+      <Route path="/admin/audit-logs">
+        <AuthGuard requireAdmin>
+          <Layout>
+            <AuditLogsPage />
           </Layout>
         </AuthGuard>
       </Route>

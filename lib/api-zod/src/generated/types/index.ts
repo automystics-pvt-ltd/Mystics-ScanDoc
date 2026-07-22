@@ -16,6 +16,7 @@ export * from './emailLog';
 export * from './emailLogStatus';
 export * from './errorResponse';
 export * from './healthStatus';
+export * from './listAuditLogsParams';
 export * from './loginInput';
 export * from './messageResponse';
 export * from './recipient';

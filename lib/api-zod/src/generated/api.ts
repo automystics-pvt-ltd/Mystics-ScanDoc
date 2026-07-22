@@ -143,6 +143,7 @@ export const GetDashboardStatsResponse = zod.object({
   "action": zod.string(),
   "userId": zod.number().nullable(),
   "userName": zod.string().nullish(),
+  "userEmail": zod.string().nullish(),
   "details": zod.string().nullish(),
   "ipAddress": zod.string().nullish(),
   "createdAt": zod.coerce.date()
@@ -408,11 +409,17 @@ export const UpdateSettingsResponse = zod.object({
 /**
  * @summary List audit logs
  */
+export const ListAuditLogsQueryParams = zod.object({
+  "action": zod.coerce.string().optional(),
+  "limit": zod.coerce.number().optional()
+})
+
 export const ListAuditLogsResponseItem = zod.object({
   "id": zod.number(),
   "action": zod.string(),
   "userId": zod.number().nullable(),
   "userName": zod.string().nullish(),
+  "userEmail": zod.string().nullish(),
   "details": zod.string().nullish(),
   "ipAddress": zod.string().nullish(),
   "createdAt": zod.coerce.date()

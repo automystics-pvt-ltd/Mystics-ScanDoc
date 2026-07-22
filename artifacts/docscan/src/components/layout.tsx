@@ -10,7 +10,8 @@ import {
   ContactRound, 
   Settings,
   LogOut,
-  ScanText
+  ScanText,
+  ShieldAlert
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -30,6 +31,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         { href: '/admin/documents', label: 'Documents', icon: Files },
         { href: '/admin/email-logs', label: 'Email Logs', icon: Mail },
         { href: '/admin/recipients', label: 'Recipients', icon: ContactRound },
+        { href: '/admin/audit-logs', label: 'Audit Log', icon: ShieldAlert },
         { href: '/admin/settings', label: 'Settings', icon: Settings },
       ]
     : [

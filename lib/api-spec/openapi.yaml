@@ -409,6 +409,17 @@ paths:
       operationId: listAuditLogs
       tags: [dashboard]
       summary: List audit logs
+      parameters:
+        - name: action
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
       responses:
         "200":
           description: Audit logs
@@ -735,6 +746,8 @@ components:
         userId:
           type: ["integer", "null"]
         userName:
+          type: ["string", "null"]
+        userEmail:
           type: ["string", "null"]
         details:
           type: ["string", "null"]
