@@ -1,0 +1,23 @@
+kind = "mobile"
+previewPath = "/mobile/"
+title = "DocScan Mobile"
+version = "1.0.0"
+id = "artifacts/docscan-mobile"
+router = "expo-domain"
+
+[[services]]
+name = "expo"
+ensurePreviewReachable = "/status"
+paths = [ "/mobile/" ]
+localPort = 22570
+
+[services.development]
+run = "pnpm --filter @workspace/docscan-mobile run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/docscan-mobile", "run", "build" ]
+run = [ "pnpm", "--filter", "@workspace/docscan-mobile", "run", "serve" ]
+
+[services.env]
+PORT = "22570"
+BASE_PATH = "/mobile/"
