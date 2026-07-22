@@ -31,7 +31,7 @@ pnpm --filter @workspace/db run push
 | Variable | Where set | Notes |
 |---|---|---|
 | `DATABASE_URL` | Runtime-managed (Replit) | Auto-injected, no action needed |
-| `JWT_SECRET` | Shared env var | Set during setup |
+| `JWT_SECRET` | Shared env var (`.replit`) | Set during setup — ideally move to Replit Secrets for better security |
 | `SESSION_SECRET` | Secret | Set during setup |
 | `PORT` | Runtime-managed | Auto-assigned per artifact |
 | `BASE_PATH` | Runtime-managed | Auto-assigned per artifact |
