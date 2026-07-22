@@ -250,6 +250,11 @@ export interface DashboardStats {
   recentActivity: AuditLog[];
 }
 
+export type UploadDocumentBody = {
+  /** The document file (PDF, JPG, or PNG, max 50 MB) */
+  file: Blob;
+};
+
 export type ListAuditLogsParams = {
 /**
  * Filter by action type (e.g. login_failed, user_login, account_locked, user_unlocked)

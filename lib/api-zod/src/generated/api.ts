@@ -68,6 +68,24 @@ export const GetMeResponse = zod.object({
 
 
 /**
+ * @summary Upload a document file
+ */
+export const UploadDocumentBody = zod.object({
+  "file": zod.instanceof(File).describe('The document file (PDF, JPG, or PNG, max 50 MB)')
+})
+
+export const UploadDocumentResponse = zod.object({
+  "id": zod.number(),
+  "userId": zod.number(),
+  "fileName": zod.string(),
+  "filePath": zod.string().optional(),
+  "fileType": zod.string(),
+  "fileSize": zod.number().nullish(),
+  "uploadedAt": zod.coerce.date()
+})
+
+
+/**
  * @summary Get user document history
  */
 export const getDocumentHistoryResponseEmailLogsItemRetryCountDefault = 0;

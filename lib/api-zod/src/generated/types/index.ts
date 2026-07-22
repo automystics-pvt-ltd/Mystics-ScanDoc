@@ -24,6 +24,7 @@ export * from './recipientInput';
 export * from './sendResult';
 export * from './settings';
 export * from './settingsInput';
+export * from './uploadDocumentBody';
 export * from './user';
 export * from './userInput';
 export * from './userInputRole';

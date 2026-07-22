@@ -14,17 +14,16 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { useAuth } from '@/contexts/auth-context';
 import { useColors } from '@/hooks/useColors';
+import { useUploadDocument, useSendDocument } from '@workspace/api-client-react';
 
 type Phase = 'idle' | 'preview' | 'uploading' | 'success' | 'error';
-
-const BASE_URL = `https://${process.env.EXPO_PUBLIC_DOMAIN}`;
 
 export default function ScanScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { token } = useAuth();
+  const uploadMutation = useUploadDocument();
+  const sendMutation = useSendDocument();
 
   const [phase, setPhase] = useState<Phase>('idle');
   const [imageUri, setImageUri] = useState<string | null>(null);
@@ -92,46 +91,28 @@ export default function ScanScreen() {
   };
 
   const uploadAndSend = async () => {
-    if (!imageUri || !token) return;
+    if (!imageUri) return;
 
     setPhase('uploading');
 
     try {
-      // 1. Upload the document
-      const formData = new FormData();
+      // 1. Upload the document via the generated typed mutation
       const filename = `document_${Date.now()}.jpg`;
-      (formData as any).append('file', {
-        uri: imageUri,
-        name: filename,
-        type: imageMime,
-      });
-
-      const uploadRes = await fetch(`${BASE_URL}/api/documents/upload`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-        body: formData,
-      });
-
-      const uploadData = await uploadRes.json();
-      if (!uploadRes.ok) throw new Error(uploadData.error || 'Upload failed');
-
-      const uploadedDocId: number = uploadData.id;
-      setDocId(uploadedDocId);
-
-      // 2. Send to configured recipients
-      const sendRes = await fetch(`${BASE_URL}/api/documents/${uploadedDocId}/send`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
+      const doc = await uploadMutation.mutateAsync({
+        data: {
+          // React Native FormData accepts { uri, name, type } objects in place
+          // of Blob. Cast needed because the generated type uses Blob.
+          file: { uri: imageUri, name: filename, type: imageMime } as unknown as Blob,
         },
       });
 
-      const sendData = await sendRes.json();
-      if (!sendRes.ok) throw new Error(sendData.error || 'Failed to send');
+      setDocId(doc.id);
+
+      // 2. Send to configured recipients via the generated typed mutation
+      const sendResult = await sendMutation.mutateAsync({ id: doc.id });
 
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      setResultMessage(sendData.message || 'Document sent successfully');
+      setResultMessage(sendResult.message || 'Document sent successfully');
       setPhase('success');
     } catch (err: any) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
@@ -142,21 +123,13 @@ export default function ScanScreen() {
 
   const retry = async () => {
     // If we have a docId, skip upload and just resend
-    if (docId && token) {
+    if (docId) {
       setPhase('uploading');
       try {
-        const sendRes = await fetch(`${BASE_URL}/api/documents/${docId}/send`, {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-        });
-        const sendData = await sendRes.json();
-        if (!sendRes.ok) throw new Error(sendData.error || 'Failed to send');
+        const sendResult = await sendMutation.mutateAsync({ id: docId });
 
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        setResultMessage(sendData.message || 'Document sent successfully');
+        setResultMessage(sendResult.message || 'Document sent successfully');
         setPhase('success');
       } catch (err: any) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);

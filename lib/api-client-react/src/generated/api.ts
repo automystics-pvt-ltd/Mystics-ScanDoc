@@ -23,6 +23,7 @@ import type {
   AuditLog,
   AuthResponse,
   DashboardStats,
+  Document,
   DocumentWithLogs,
   DocumentWithUser,
   EmailLog,
@@ -36,6 +37,7 @@ import type {
   SendResult,
   Settings,
   SettingsInput,
+  UploadDocumentBody,
   User,
   UserInput,
   UserUpdate
@@ -363,6 +365,79 @@ export function useGetMe<TData = Awaited<ReturnType<typeof getMe>>, TError = Err
 
 
 
+
+export const getUploadDocumentUrl = () => {
+
+
+
+
+  return `/api/documents/upload`
+}
+
+/**
+ * @summary Upload a document file
+ */
+export const uploadDocument = async (uploadDocumentBody: UploadDocumentBody, options?: RequestInit): Promise<Document> => {
+    const formData = new FormData();
+formData.append(`file`, uploadDocumentBody.file);
+
+  return customFetch<Document>(getUploadDocumentUrl(),
+  {
+    ...options,
+    method: 'POST'
+    ,
+    body: formData
+  }
+);}
+
+
+
+
+
+export const getUploadDocumentMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof uploadDocument>>, TError,{data: BodyType<UploadDocumentBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof uploadDocument>>, TError,{data: BodyType<UploadDocumentBody>}, TContext> => {
+
+const mutationKey = ['uploadDocument'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof uploadDocument>>, {data: BodyType<UploadDocumentBody>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  uploadDocument(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UploadDocumentMutationResult = NonNullable<Awaited<ReturnType<typeof uploadDocument>>>
+    export type UploadDocumentMutationBody = BodyType<UploadDocumentBody>
+    export type UploadDocumentMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Upload a document file
+ */
+export const useUploadDocument = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof uploadDocument>>, TError,{data: BodyType<UploadDocumentBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof uploadDocument>>,
+        TError,
+        {data: BodyType<UploadDocumentBody>},
+        TContext
+      > => {
+      return useMutation(getUploadDocumentMutationOptions(options));
+    }
 
 export const getGetDocumentHistoryUrl = () => {
 
