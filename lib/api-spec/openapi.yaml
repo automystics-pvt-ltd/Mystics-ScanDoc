@@ -594,6 +594,8 @@ components:
           enum: [queued, sent, failed, retry_pending]
         sentAt:
           type: ["string", "null"]
+        messageId:
+          type: ["string", "null"]
         errorMessage:
           type: ["string", "null"]
         retryCount:

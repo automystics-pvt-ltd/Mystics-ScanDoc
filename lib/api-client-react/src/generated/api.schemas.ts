@@ -129,6 +129,8 @@ export interface EmailLog {
   /** @nullable */
   sentAt: string | null;
   /** @nullable */
+  messageId?: string | null;
+  /** @nullable */
   errorMessage?: string | null;
   retryCount: number;
   /** @nullable */
