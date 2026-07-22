@@ -104,7 +104,7 @@ export default function Upload() {
   };
 
   return (
-    <div className="max-w-5xl w-full mx-auto">
+    <div className="max-w-7xl w-full mx-auto">
       <div className="mb-8">
         <h1 className="text-2xl font-bold tracking-tight mb-2">Scan & Dispatch</h1>
         <p className="text-muted-foreground text-sm">Drop a scanned document here to immediately route it to all configured mailroom recipients.</p>
