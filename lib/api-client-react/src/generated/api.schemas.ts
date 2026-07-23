@@ -212,53 +212,6 @@ export interface Settings {
   maxFileSizeMb: number;
   /** @nullable */
   allowedFileTypes?: string | null;
-  // ── Email provider ────────────────────────────────────────────────────────
-  /** @nullable */
-  emailProvider?: string | null;
-  /** @nullable */
-  emailProviderApiKey?: string | null;
-  /** @nullable */
-  emailProviderDomain?: string | null;
-  // ── SMS ──────────────────────────────────────────────────────────────────
-  smsEnabled?: boolean | null;
-  /** @nullable */
-  smsProvider?: string | null;
-  /** @nullable */
-  smsProviderApiKey?: string | null;
-  /** @nullable */
-  smsProviderSecret?: string | null;
-  /** @nullable */
-  smsProviderFrom?: string | null;
-  // ── WhatsApp ─────────────────────────────────────────────────────────────
-  whatsappEnabled?: boolean | null;
-  /** @nullable */
-  whatsappProvider?: string | null;
-  /** @nullable */
-  whatsappProviderApiKey?: string | null;
-  /** @nullable */
-  whatsappProviderFrom?: string | null;
-  // ── Channels ─────────────────────────────────────────────────────────────
-  /** @nullable */
-  notificationChannels?: string | null;
-  /** @nullable */
-  defaultNotificationChannel?: string | null;
-  // ── Retention ────────────────────────────────────────────────────────────
-  retentionDays?: number | null;
-  // ── Scanner ──────────────────────────────────────────────────────────────
-  /** @nullable */
-  scannerName?: string | null;
-  /** @nullable */
-  scannerPaperSize?: string | null;
-  scannerResolutionDpi?: number | null;
-  /** @nullable */
-  scannerColorMode?: string | null;
-  /** @nullable */
-  scannerFileFormat?: string | null;
-  scannerDuplex?: boolean | null;
-  scannerBrightness?: number | null;
-  scannerContrast?: number | null;
-  /** @nullable */
-  scannerApiKey?: string | null;
 }
 
 export interface SettingsInput {
@@ -274,35 +227,28 @@ export interface SettingsInput {
   /** @minimum 1 */
   maxFileSizeMb?: number;
   allowedFileTypes?: string;
-  // ── Email provider ────────────────────────────────────────────────────────
-  emailProvider?: string;
-  emailProviderApiKey?: string;
-  emailProviderDomain?: string;
-  // ── SMS ──────────────────────────────────────────────────────────────────
-  smsEnabled?: boolean;
-  smsProvider?: string;
-  smsProviderApiKey?: string;
-  smsProviderSecret?: string;
-  smsProviderFrom?: string;
-  // ── WhatsApp ─────────────────────────────────────────────────────────────
-  whatsappEnabled?: boolean;
-  whatsappProvider?: string;
-  whatsappProviderApiKey?: string;
-  whatsappProviderFrom?: string;
-  // ── Channels ─────────────────────────────────────────────────────────────
-  notificationChannels?: string;
-  defaultNotificationChannel?: string;
-  // ── Retention ────────────────────────────────────────────────────────────
-  retentionDays?: number;
-  // ── Scanner ──────────────────────────────────────────────────────────────
-  scannerName?: string;
-  scannerPaperSize?: string;
-  scannerResolutionDpi?: number;
-  scannerColorMode?: string;
-  scannerFileFormat?: string;
-  scannerDuplex?: boolean;
-  scannerBrightness?: number;
-  scannerContrast?: number;
+}
+
+export interface DashboardVolumeSeries {
+  date: string;
+  documents: number;
+  emails: number;
+}
+
+export interface DashboardTrends {
+  documents: number;
+  emails: number;
+  users: number;
+}
+
+export interface DashboardFailure {
+  id: number;
+  recipientEmail: string;
+  /** @nullable */
+  errorMessage?: string | null;
+  /** @nullable */
+  sentAt: string | null;
+  retryCount?: number;
 }
 
 export interface AuditLog {
@@ -329,7 +275,10 @@ export interface DashboardStats {
   failedEmails: number;
   documentsToday?: number;
   emailsToday?: number;
+  trends: DashboardTrends;
+  volumeSeries: DashboardVolumeSeries[];
   recentActivity: AuditLog[];
+  recentFailures: DashboardFailure[];
 }
 
 export type UploadDocumentBody = {

@@ -6,6 +6,9 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { AuditLog } from './auditLog';
+import type { DashboardFailure } from './dashboardFailure';
+import type { DashboardTrends } from './dashboardTrends';
+import type { DashboardVolumeSeries } from './dashboardVolumeSeries';
 
 export interface DashboardStats {
   totalUsers: number;
@@ -15,5 +18,8 @@ export interface DashboardStats {
   failedEmails: number;
   documentsToday?: number;
   emailsToday?: number;
+  trends: DashboardTrends;
+  volumeSeries: DashboardVolumeSeries[];
   recentActivity: AuditLog[];
+  recentFailures: DashboardFailure[];
 }

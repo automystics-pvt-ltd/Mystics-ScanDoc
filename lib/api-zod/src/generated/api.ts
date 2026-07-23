@@ -173,6 +173,16 @@ export const GetDashboardStatsResponse = zod.object({
   "failedEmails": zod.number(),
   "documentsToday": zod.number().optional(),
   "emailsToday": zod.number().optional(),
+  "trends": zod.object({
+  "documents": zod.number(),
+  "emails": zod.number(),
+  "users": zod.number()
+}),
+  "volumeSeries": zod.array(zod.object({
+  "date": zod.string(),
+  "documents": zod.number(),
+  "emails": zod.number()
+})),
   "recentActivity": zod.array(zod.object({
   "id": zod.number(),
   "action": zod.string(),
@@ -182,6 +192,13 @@ export const GetDashboardStatsResponse = zod.object({
   "details": zod.string().nullish(),
   "ipAddress": zod.string().nullish(),
   "createdAt": zod.coerce.date()
+})),
+  "recentFailures": zod.array(zod.object({
+  "id": zod.number(),
+  "recipientEmail": zod.string(),
+  "errorMessage": zod.string().nullish(),
+  "sentAt": zod.coerce.date().nullable(),
+  "retryCount": zod.number().optional()
 }))
 })
 

@@ -828,9 +828,47 @@ components:
         allowedFileTypes:
           type: string
 
+    DashboardVolumeSeries:
+      type: object
+      required: [date, documents, emails]
+      properties:
+        date:
+          type: string
+        documents:
+          type: integer
+        emails:
+          type: integer
+
+    DashboardTrends:
+      type: object
+      required: [documents, emails, users]
+      properties:
+        documents:
+          type: integer
+        emails:
+          type: integer
+        users:
+          type: integer
+
+    DashboardFailure:
+      type: object
+      required: [id, recipientEmail, sentAt]
+      properties:
+        id:
+          type: integer
+        recipientEmail:
+          type: string
+        errorMessage:
+          type: ["string", "null"]
+        sentAt:
+          type: ["string", "null"]
+          format: date-time
+        retryCount:
+          type: integer
+
     DashboardStats:
       type: object
-      required: [totalUsers, activeUsers, totalDocuments, totalEmailsSent, failedEmails, recentActivity]
+      required: [totalUsers, activeUsers, totalDocuments, totalEmailsSent, failedEmails, recentActivity, volumeSeries, trends, recentFailures]
       properties:
         totalUsers:
           type: integer
@@ -846,10 +884,20 @@ components:
           type: integer
         emailsToday:
           type: integer
+        trends:
+          $ref: "#/components/schemas/DashboardTrends"
+        volumeSeries:
+          type: array
+          items:
+            $ref: "#/components/schemas/DashboardVolumeSeries"
         recentActivity:
           type: array
           items:
             $ref: "#/components/schemas/AuditLog"
+        recentFailures:
+          type: array
+          items:
+            $ref: "#/components/schemas/DashboardFailure"
 
     AuditLog:
       type: object
