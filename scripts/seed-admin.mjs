@@ -8,9 +8,10 @@ import path from "path";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-// Resolve packages from api-server's context so pnpm can find them
-const apiServerPkg = path.resolve(__dirname, "../artifacts/api-server/package.json");
-const require = createRequire(apiServerPkg);
+// Resolve packages from api-server's node_modules by anchoring to a
+// (real or fictional) file inside that package directory.
+const apiServerBase = path.resolve(__dirname, "../artifacts/api-server/__seed__.js");
+const require = createRequire(apiServerBase);
 
 const { Pool } = require("pg");
 
