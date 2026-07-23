@@ -152,7 +152,7 @@ export default function Upload() {
           toast({ title: 'Document Dispatched', description: 'Processed and queued for delivery.' });
           setTimeout(() => { clearFile(); setCapturedDataUrl(null); setUploadSuccess(false); }, 3000);
         },
-        onError: () => toast({ title: 'Dispatch Failed', description: 'Uploaded but failed to queue.', variant: 'destructive' }),
+        onError: (err: any) => toast({ title: 'Dispatch Failed', description: err?.data?.error ?? err?.message ?? 'Uploaded but failed to queue.', variant: 'destructive' }),
       });
     } catch {
       toast({ title: 'Upload Error', description: 'Failed to upload.', variant: 'destructive' });
