@@ -54,7 +54,7 @@ ok "DB schema up to date"
 
 # ── Step 4 — Seed default accounts ───────────────────────────────────────────
 info "Step 4/7 — Seed default accounts (skipped if already exist)"
-node "$SCRIPT_DIR/scripts/seed-admin.mjs"
+pnpm --filter @workspace/db exec tsx src/seed.ts
 ok "Accounts ready"
 
 # ── Step 5 — Build API server ─────────────────────────────────────────────────
