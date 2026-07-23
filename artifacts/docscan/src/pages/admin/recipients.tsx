@@ -1,8 +1,14 @@
 import { useState, useMemo, useEffect } from 'react';
-import { useListRecipients, useCreateRecipient, useToggleRecipient, getListRecipientsQueryKey } from '@workspace/api-client-react';
-import { useQueryClient } from '@tanstack/react-query';
+import {
+  useListRecipients,
+  useCreateRecipient,
+  useToggleRecipient,
+  useDeleteRecipient,
+  getListRecipientsQueryKey,
+} from '@workspace/api-client-react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
-import { Plus, Mail, Search, Power } from 'lucide-react';
+import { Plus, Mail, Search, Power, Pencil, Trash2, Check, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -15,6 +21,16 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { SortableHeader } from '@/components/sortable-header';
 import { PaginationControls } from '@/components/pagination-controls';
 
@@ -24,6 +40,7 @@ export default function Recipients() {
   const { data: recipients, isLoading } = useListRecipients();
   const createRecip = useCreateRecipient();
   const toggleRecip = useToggleRecipient();
+  const deleteRecip = useDeleteRecipient();
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -32,6 +49,45 @@ export default function Recipients() {
   const [sortKey, setSortKey] = useState<string>('createdAt');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const [page, setPage] = useState(1);
+
+  // Inline edit state
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editValue, setEditValue] = useState('');
+
+  // Delete confirm state
+  const [deleteTarget, setDeleteTarget] = useState<{ id: number; email: string } | null>(null);
+
+  // PUT /admin/recipients/:id
+  const updateRecip = useMutation({
+    mutationFn: async ({ id, email }: { id: number; email: string }) => {
+      const token = localStorage.getItem('docscan_token');
+      const res = await fetch(`/api/admin/recipients/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ recipientEmail: email }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw { data };
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: getListRecipientsQueryKey() });
+      setEditingId(null);
+      toast({ title: 'Recipient Updated', description: 'Email address saved.' });
+    },
+    onError: (err: any) => {
+      toast({
+        title: 'Error',
+        description: err?.data?.error || 'Could not update email.',
+        variant: 'destructive',
+      });
+    },
+  });
 
   const filtered = useMemo(
     () =>
@@ -115,6 +171,39 @@ export default function Recipients() {
     );
   };
 
+  const startEdit = (id: number, currentEmail: string) => {
+    setEditingId(id);
+    setEditValue(currentEmail);
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setEditValue('');
+  };
+
+  const saveEdit = () => {
+    if (!editingId || !editValue.includes('@')) return;
+    updateRecip.mutate({ id: editingId, email: editValue });
+  };
+
+  const confirmDelete = () => {
+    if (!deleteTarget) return;
+    deleteRecip.mutate(
+      { id: deleteTarget.id },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getListRecipientsQueryKey() });
+          toast({ title: 'Recipient Removed', description: `${deleteTarget.email} has been deleted.` });
+          setDeleteTarget(null);
+        },
+        onError: () => {
+          toast({ title: 'Error', description: 'Could not delete recipient.', variant: 'destructive' });
+          setDeleteTarget(null);
+        },
+      }
+    );
+  };
+
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
       <h1 className="text-2xl font-bold tracking-tight">Recipients</h1>
@@ -180,7 +269,7 @@ export default function Recipients() {
                     onSort={handleSort}
                   />
                 </TableHead>
-                <TableHead className="px-6 py-3 w-[100px] text-right">Action</TableHead>
+                <TableHead className="px-6 py-3 w-[160px] text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -202,12 +291,49 @@ export default function Recipients() {
                     key={recip.id}
                     className={`hover:bg-muted/20 ${!recip.isActive ? 'opacity-60' : ''}`}
                   >
-                    <TableCell className="px-6 py-4">
-                      <div className="flex items-center gap-2">
-                        <Mail className="w-4 h-4 text-muted-foreground shrink-0" />
-                        <span className="font-mono text-sm font-medium">{recip.recipientEmail}</span>
-                      </div>
+                    {/* Email cell — normal or inline-edit */}
+                    <TableCell className="px-6 py-3">
+                      {editingId === recip.id ? (
+                        <div className="flex items-center gap-2">
+                          <Input
+                            type="email"
+                            className="h-8 text-sm font-mono w-64"
+                            value={editValue}
+                            onChange={(e) => setEditValue(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') saveEdit();
+                              if (e.key === 'Escape') cancelEdit();
+                            }}
+                            autoFocus
+                            disabled={updateRecip.isPending}
+                          />
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-8 w-8 text-green-600 hover:text-green-700 hover:bg-green-50"
+                            onClick={saveEdit}
+                            disabled={updateRecip.isPending || !editValue.includes('@')}
+                          >
+                            <Check className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                            onClick={cancelEdit}
+                            disabled={updateRecip.isPending}
+                          >
+                            <X className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <Mail className="w-4 h-4 text-muted-foreground shrink-0" />
+                          <span className="font-mono text-sm font-medium">{recip.recipientEmail}</span>
+                        </div>
+                      )}
                     </TableCell>
+
                     <TableCell className="px-6 py-4">
                       {recip.isActive ? (
                         <Badge className="bg-green-100 text-green-800 border-green-200 hover:bg-green-100">
@@ -219,24 +345,54 @@ export default function Recipients() {
                         </Badge>
                       )}
                     </TableCell>
+
                     <TableCell className="px-6 py-4 text-sm text-muted-foreground">
                       {format(new Date(recip.createdAt), 'MMM d, yyyy')}
                     </TableCell>
+
+                    {/* Actions */}
                     <TableCell className="px-6 py-4 text-right">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className={`h-8 gap-1.5 text-xs font-medium ${
-                          recip.isActive
-                            ? 'text-muted-foreground hover:text-destructive hover:bg-destructive/10'
-                            : 'text-primary hover:text-primary hover:bg-primary/10'
-                        }`}
-                        onClick={() => handleToggle(recip.id, recip.isActive)}
-                        disabled={toggleRecip.isPending}
-                      >
-                        <Power className="w-3.5 h-3.5" />
-                        {recip.isActive ? 'Deactivate' : 'Activate'}
-                      </Button>
+                      {editingId !== recip.id && (
+                        <div className="flex items-center justify-end gap-1">
+                          {/* Edit */}
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 w-8 p-0 text-muted-foreground hover:text-primary hover:bg-primary/10"
+                            onClick={() => startEdit(recip.id, recip.recipientEmail)}
+                            title="Edit email"
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                          </Button>
+
+                          {/* Toggle active/inactive */}
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className={`h-8 w-8 p-0 ${
+                              recip.isActive
+                                ? 'text-muted-foreground hover:text-amber-600 hover:bg-amber-50'
+                                : 'text-muted-foreground hover:text-primary hover:bg-primary/10'
+                            }`}
+                            onClick={() => handleToggle(recip.id, recip.isActive)}
+                            disabled={toggleRecip.isPending}
+                            title={recip.isActive ? 'Deactivate' : 'Activate'}
+                          >
+                            <Power className="w-3.5 h-3.5" />
+                          </Button>
+
+                          {/* Delete */}
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                            onClick={() => setDeleteTarget({ id: recip.id, email: recip.recipientEmail })}
+                            title="Delete recipient"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </Button>
+                        </div>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))
@@ -253,6 +409,29 @@ export default function Recipients() {
           onPageChange={setPage}
         />
       </div>
+
+      {/* Delete confirm dialog */}
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Recipient?</AlertDialogTitle>
+            <AlertDialogDescription>
+              <span className="font-mono font-medium">{deleteTarget?.email}</span> will be permanently
+              removed from the recipient list. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={confirmDelete}
+              disabled={deleteRecip.isPending}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

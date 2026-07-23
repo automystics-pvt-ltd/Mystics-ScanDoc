@@ -70,6 +70,56 @@ router.post("/admin/recipients", requireAuth, requireAdmin, async (req, res): Pr
   res.status(201).json(recipient);
 });
 
+// PUT /admin/recipients/:id — update email address
+router.put("/admin/recipients/:id", requireAuth, requireAdmin, async (req, res): Promise<void> => {
+  const rawId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+  const id = parseInt(rawId, 10);
+  const { recipientEmail } = req.body;
+
+  if (!recipientEmail) {
+    res.status(400).json({ error: "Recipient email is required" });
+    return;
+  }
+
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(recipientEmail)) {
+    res.status(400).json({ error: "Invalid email address" });
+    return;
+  }
+
+  const [existing] = await db.select().from(recipientsTable).where(eq(recipientsTable.id, id));
+  if (!existing) {
+    res.status(404).json({ error: "Recipient not found" });
+    return;
+  }
+
+  // Check for duplicate (excluding self)
+  const dupe = await db
+    .select()
+    .from(recipientsTable)
+    .where(eq(recipientsTable.recipientEmail, recipientEmail.toLowerCase().trim()));
+
+  if (dupe.length > 0 && dupe[0].id !== id) {
+    res.status(400).json({ error: "That email is already in the list" });
+    return;
+  }
+
+  const [updated] = await db
+    .update(recipientsTable)
+    .set({ recipientEmail: recipientEmail.toLowerCase().trim() })
+    .where(eq(recipientsTable.id, id))
+    .returning();
+
+  await db.insert(auditLogsTable).values({
+    action: "recipient_updated",
+    userId: req.user!.id,
+    details: `Updated recipient: ${existing.recipientEmail} → ${updated.recipientEmail}`,
+    ipAddress: req.ip,
+  });
+
+  res.json(updated);
+});
+
 // PATCH /admin/recipients/:id — toggle active/inactive
 router.patch("/admin/recipients/:id", requireAuth, requireAdmin, async (req, res): Promise<void> => {
   const rawId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
