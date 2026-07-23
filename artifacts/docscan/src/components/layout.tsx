@@ -144,10 +144,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const DesktopNav = () => (
     <TooltipProvider delayDuration={0}>
       {/* Logo */}
-      <div className={cn(
-        'h-16 flex items-center border-b border-sidebar-border/50 shrink-0 transition-all duration-300',
-        collapsed ? 'justify-between px-3' : 'px-4 gap-3',
-      )}>
+      <div className="h-16 flex items-center justify-between px-3 border-b border-sidebar-border/50 shrink-0">
         <div className="flex items-center gap-3 min-w-0">
           <div className="bg-primary p-1.5 rounded flex items-center justify-center shrink-0">
             <ScanText className="w-5 h-5 text-primary-foreground" />
@@ -163,7 +160,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
           <TooltipTrigger asChild>
             <button
               onClick={toggleCollapsed}
-              className="text-sidebar-foreground/40 hover:text-sidebar-foreground hover:bg-sidebar-accent p-1.5 rounded transition-colors shrink-0"
+              className="text-sidebar-foreground/40 hover:text-sidebar-foreground hover:bg-sidebar-accent p-1.5 rounded transition-colors shrink-0 ml-1"
             >
               {collapsed ? <PanelLeftOpen className="w-4 h-4" /> : <PanelLeftClose className="w-4 h-4" />}
             </button>
