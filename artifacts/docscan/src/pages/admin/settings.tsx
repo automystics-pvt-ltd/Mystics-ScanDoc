@@ -18,38 +18,36 @@ import { useToast } from '@/hooks/use-toast';
 import {
   Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage,
 } from '@/components/ui/form';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { getApiUrl } from '@/lib/api';
 import { cn } from '@/lib/utils';
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
 const EMAIL_PROVIDERS = [
-  { id: 'resend', name: 'Resend', desc: 'Transactional email API', color: 'bg-black text-white' },
-  { id: 'sendgrid', name: 'SendGrid', desc: 'Twilio SendGrid', color: 'bg-blue-600 text-white' },
-  { id: 'mailgun', name: 'Mailgun', desc: 'Mailgun email API', color: 'bg-red-600 text-white' },
-  { id: 'ses', name: 'AWS SES', desc: 'Amazon Simple Email Service', color: 'bg-orange-500 text-white' },
-  { id: 'postmark', name: 'Postmark', desc: 'Postmark transactional email', color: 'bg-yellow-500 text-black' },
-  { id: 'smtp', name: 'Custom SMTP', desc: 'Any SMTP server', color: 'bg-muted text-foreground border' },
+  { id: 'resend',    name: 'Resend',       desc: 'Transactional email API' },
+  { id: 'sendgrid',  name: 'SendGrid',     desc: 'Twilio SendGrid' },
+  { id: 'mailgun',   name: 'Mailgun',      desc: 'Mailgun email API' },
+  { id: 'ses',       name: 'AWS SES',      desc: 'Amazon Simple Email Service' },
+  { id: 'postmark',  name: 'Postmark',     desc: 'Postmark transactional email' },
+  { id: 'smtp',      name: 'Custom SMTP',  desc: 'Any SMTP server' },
 ];
 
 const SMS_PROVIDERS = [
-  { id: 'twilio', name: 'Twilio', desc: 'Industry-leading SMS API' },
-  { id: 'vonage', name: 'Vonage', desc: 'Vonage SMS (formerly Nexmo)' },
-  { id: 'messagebird', name: 'MessageBird', desc: 'MessageBird SMS' },
+  { id: 'twilio',      name: 'Twilio',       desc: 'Industry-leading SMS API' },
+  { id: 'vonage',      name: 'Vonage',       desc: 'Vonage SMS (formerly Nexmo)' },
+  { id: 'messagebird', name: 'MessageBird',  desc: 'MessageBird SMS' },
 ];
 
 const WHATSAPP_PROVIDERS = [
-  { id: 'twilio', name: 'Twilio WhatsApp', desc: 'WhatsApp via Twilio API' },
-  { id: 'meta', name: 'Meta Business API', desc: 'Official WhatsApp Business API' },
+  { id: 'twilio', name: 'Twilio WhatsApp',   desc: 'WhatsApp via Twilio API' },
+  { id: 'meta',   name: 'Meta Business API', desc: 'Official WhatsApp Business API' },
 ];
 
 const PAPER_SIZES = ['A4', 'A3', 'A5', 'Letter', 'Legal', 'Tabloid', 'Custom'];
 const DPI_OPTIONS = [75, 150, 200, 300, 600, 1200];
 const COLOR_MODES = [
-  { id: 'color', label: 'Color' },
-  { id: 'grayscale', label: 'Grayscale' },
+  { id: 'color',      label: 'Color' },
+  { id: 'grayscale',  label: 'Grayscale' },
   { id: 'blackwhite', label: 'Black & White' },
 ];
 const FILE_FORMATS = ['pdf', 'jpg', 'png'];
@@ -57,31 +55,23 @@ const FILE_FORMATS = ['pdf', 'jpg', 'png'];
 // ── Schema ───────────────────────────────────────────────────────────────────
 
 const settingsSchema = z.object({
-  // Transport
   smtpUser: z.string().optional(),
-  // Email provider
   emailProvider: z.string().default('resend'),
   emailProviderApiKey: z.string().optional(),
   emailProviderDomain: z.string().optional(),
-  // SMS
   smsEnabled: z.boolean().default(false),
   smsProvider: z.string().optional(),
   smsProviderApiKey: z.string().optional(),
   smsProviderSecret: z.string().optional(),
   smsProviderFrom: z.string().optional(),
-  // WhatsApp
   whatsappEnabled: z.boolean().default(false),
   whatsappProvider: z.string().optional(),
   whatsappProviderApiKey: z.string().optional(),
   whatsappProviderFrom: z.string().optional(),
-  // Channels
   defaultNotificationChannel: z.string().default('email'),
-  // Limits
   maxRecipients: z.coerce.number().min(1).max(10),
   maxFileSizeMb: z.coerce.number().min(1).max(50),
-  // Retention
   retentionDays: z.coerce.number().min(0).max(3650),
-  // Scanner
   scannerName: z.string().optional(),
   scannerPaperSize: z.string().default('A4'),
   scannerResolutionDpi: z.coerce.number().default(300),
@@ -93,59 +83,103 @@ const settingsSchema = z.object({
 });
 
 type SettingsForm = z.infer<typeof settingsSchema>;
+type Section = 'email' | 'notifications' | 'storage' | 'scanner';
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
+// ── Micro helpers ─────────────────────────────────────────────────────────────
 
-function MaskedInput({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder?: string }) {
+function FieldRow({ label, hint, children, className }: {
+  label: string; hint?: string; children: React.ReactNode; className?: string;
+}) {
+  return (
+    <div className={cn('flex items-start justify-between gap-8 py-3.5 border-b border-border/60 last:border-0', className)}>
+      <div className="min-w-0 flex-shrink-0 w-52">
+        <p className="text-sm font-medium text-foreground leading-snug">{label}</p>
+        {hint && <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{hint}</p>}
+      </div>
+      <div className="flex-1 max-w-sm">{children}</div>
+    </div>
+  );
+}
+
+function SectionHeading({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground pt-5 pb-1 first:pt-0">
+      {children}
+    </p>
+  );
+}
+
+function MaskedInput({ value, onChange, placeholder }: {
+  value: string; onChange: (v: string) => void; placeholder?: string;
+}) {
   const [show, setShow] = useState(false);
   return (
     <div className="relative">
-      <Input
-        type={show ? 'text' : 'password'}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
-        className="font-mono bg-background pr-10"
-      />
+      <Input type={show ? 'text' : 'password'} value={value} onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder} className="font-mono text-sm pr-9 h-8" />
       <button type="button" onClick={() => setShow(s => !s)}
-        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors">
-        {show ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+        {show ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
       </button>
     </div>
   );
 }
 
-function SelectButtons({ options, value, onChange }: {
-  options: { id: string; label?: string; name?: string }[];
+function ProviderList({ options, value, onChange }: {
+  options: { id: string; name: string; desc: string }[];
   value: string;
   onChange: (v: string) => void;
 }) {
   return (
-    <div className="flex flex-wrap gap-2">
+    <div className="divide-y divide-border/60 rounded border border-border overflow-hidden">
       {options.map((o) => (
         <button key={o.id} type="button" onClick={() => onChange(o.id)}
           className={cn(
-            'px-3 py-1.5 rounded-lg text-sm font-medium border transition-all',
-            value === o.id
-              ? 'bg-primary text-primary-foreground border-primary shadow-sm'
-              : 'bg-background border-border text-muted-foreground hover:border-primary/50 hover:text-foreground',
+            'w-full flex items-center gap-3 px-3 py-2.5 text-left transition-colors text-sm',
+            value === o.id ? 'bg-primary/5' : 'bg-background hover:bg-muted/40',
           )}>
-          {o.label ?? o.name}
+          <span className={cn(
+            'w-3.5 h-3.5 rounded-full border-2 shrink-0 transition-colors',
+            value === o.id ? 'border-primary bg-primary' : 'border-muted-foreground/40',
+          )} />
+          <span className="font-medium text-foreground">{o.name}</span>
+          <span className="text-xs text-muted-foreground ml-auto">{o.desc}</span>
         </button>
       ))}
     </div>
   );
 }
 
-// ── Scan-to-URL card ─────────────────────────────────────────────────────────
+function ChipGroup({ options, value, onChange }: {
+  options: { id: string; label: string }[];
+  value: string | number;
+  onChange: (v: any) => void;
+}) {
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {options.map((o) => (
+        <button key={o.id} type="button" onClick={() => onChange(o.id)}
+          className={cn(
+            'px-2.5 py-1 rounded text-xs font-medium border transition-all',
+            String(value) === String(o.id)
+              ? 'bg-primary text-primary-foreground border-primary'
+              : 'bg-background border-border text-muted-foreground hover:border-primary/50 hover:text-foreground',
+          )}>
+          {o.label}
+        </button>
+      ))}
+    </div>
+  );
+}
 
-function ScanToUrlCard() {
+// ── Scan-to-URL card ──────────────────────────────────────────────────────────
+
+function ScanToUrlSection() {
   const [apiKey, setApiKey] = useState<string | null>(null);
   const [showKey, setShowKey] = useState(false);
   const [loading, setLoading] = useState(true);
   const [regenerating, setRegenerating] = useState(false);
   const { toast } = useToast();
-
   const endpointUrl = `${window.location.origin}${import.meta.env.BASE_URL}api/scanner/receive`;
 
   const fetchKey = async () => {
@@ -163,7 +197,7 @@ function ScanToUrlCard() {
 
   const copy = (text: string, label: string) => {
     navigator.clipboard.writeText(text).then(() =>
-      toast({ title: `${label} copied`, description: 'Paste it into your scanner configuration.' })
+      toast({ title: `${label} copied` })
     );
   };
 
@@ -174,78 +208,62 @@ function ScanToUrlCard() {
       const res = await fetch(`${import.meta.env.BASE_URL}api/admin/scanner/regen-key`, {
         method: 'POST', headers: { Authorization: `Bearer ${token}` },
       });
-      if (res.ok) { const d = await res.json(); setApiKey(d.scannerApiKey); toast({ title: 'Key regenerated', description: 'Update your scanner with the new key.' }); }
+      if (res.ok) {
+        const d = await res.json(); setApiKey(d.scannerApiKey);
+        toast({ title: 'Key regenerated', description: 'Update your scanner configuration.' });
+      }
     } catch {}
     setRegenerating(false);
   };
 
   return (
-    <Card className="shadow-sm border-primary/20">
-      <CardHeader className="bg-primary/5 border-b border-primary/10 pb-4 pt-5">
-        <CardTitle className="text-base font-semibold flex items-center gap-2">
-          <Wifi className="w-4 h-4 text-primary" /> Scan-to-URL Integration
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="pt-6 space-y-5">
-        <p className="text-sm text-muted-foreground">
-          Configure your physical scanner to POST scanned documents directly to this endpoint.
-          Supported by Fujitsu, Canon, Ricoh, Kyocera, HP, and most enterprise scanners via <strong>Scan to URL</strong> or <strong>Scan to HTTP</strong>.
-        </p>
-
-        {/* Endpoint URL */}
-        <div>
-          <p className="text-xs uppercase font-semibold text-muted-foreground mb-2 flex items-center gap-1.5">
-            <Link className="w-3.5 h-3.5" /> Endpoint URL
-          </p>
-          <div className="flex gap-2">
-            <code className="flex-1 bg-muted border border-border rounded-lg px-3 py-2 text-sm font-mono text-foreground truncate">
+    <>
+      <SectionHeading>Scan-to-URL</SectionHeading>
+      <div className="divide-y divide-border/60 border-b border-border/60">
+        <FieldRow label="Endpoint URL" hint="POST scanned documents to this address">
+          <div className="flex gap-1.5">
+            <code className="flex-1 bg-muted border border-border rounded px-2.5 py-1.5 text-xs font-mono text-foreground truncate block">
               {endpointUrl}
             </code>
-            <Button type="button" variant="outline" size="icon" onClick={() => copy(endpointUrl, 'Endpoint URL')}>
-              <Copy className="w-4 h-4" />
+            <Button type="button" variant="outline" size="icon" className="h-8 w-8 shrink-0" onClick={() => copy(endpointUrl, 'Endpoint URL')}>
+              <Copy className="w-3.5 h-3.5" />
             </Button>
           </div>
-        </div>
+        </FieldRow>
 
-        {/* API Key */}
-        <div>
-          <p className="text-xs uppercase font-semibold text-muted-foreground mb-2 flex items-center gap-1.5">
-            <Eye className="w-3.5 h-3.5" /> Scanner API Key
-          </p>
+        <FieldRow label="API Key" hint={`Header: X-Scanner-Key or ?key= query param`}>
           {loading ? (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="w-4 h-4 animate-spin" /> Loading…</div>
+            <div className="flex items-center gap-2 text-xs text-muted-foreground h-8">
+              <Loader2 className="w-3.5 h-3.5 animate-spin" /> Loading…
+            </div>
           ) : (
-            <div className="flex gap-2">
-              <code className="flex-1 bg-muted border border-border rounded-lg px-3 py-2 text-sm font-mono text-foreground truncate">
-                {showKey ? apiKey : '•'.repeat(Math.min(apiKey?.length ?? 0, 40))}
+            <div className="flex gap-1.5">
+              <code className="flex-1 bg-muted border border-border rounded px-2.5 py-1.5 text-xs font-mono text-foreground truncate block">
+                {showKey ? apiKey : '•'.repeat(Math.min(apiKey?.length ?? 0, 36))}
               </code>
-              <Button type="button" variant="outline" size="icon" onClick={() => setShowKey(s => !s)}>
-                {showKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              <Button type="button" variant="outline" size="icon" className="h-8 w-8 shrink-0" onClick={() => setShowKey(s => !s)}>
+                {showKey ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
               </Button>
-              <Button type="button" variant="outline" size="icon" onClick={() => copy(apiKey ?? '', 'API Key')}>
-                <Copy className="w-4 h-4" />
+              <Button type="button" variant="outline" size="icon" className="h-8 w-8 shrink-0" onClick={() => copy(apiKey ?? '', 'API Key')}>
+                <Copy className="w-3.5 h-3.5" />
               </Button>
-              <Button type="button" variant="outline" size="icon" onClick={regen} disabled={regenerating}>
-                <RotateCcw className={cn('w-4 h-4', regenerating && 'animate-spin')} />
+              <Button type="button" variant="outline" size="icon" className="h-8 w-8 shrink-0" onClick={regen} disabled={regenerating}>
+                <RotateCcw className={cn('w-3.5 h-3.5', regenerating && 'animate-spin')} />
               </Button>
             </div>
           )}
-          <p className="text-xs text-muted-foreground mt-1.5">Use this key as: HTTP header <code className="bg-muted px-1 rounded">X-Scanner-Key: &lt;key&gt;</code> or query param <code className="bg-muted px-1 rounded">?key=&lt;key&gt;</code></p>
-        </div>
+        </FieldRow>
 
-        {/* Setup guide */}
-        <div className="bg-muted/40 rounded-lg p-4 border border-border space-y-2">
-          <p className="text-xs uppercase font-semibold text-muted-foreground">Quick Setup Guide</p>
-          <ol className="text-sm text-muted-foreground space-y-1.5 list-decimal pl-4">
-            <li>On your scanner, find <strong>Scan to URL</strong>, <strong>Scan to HTTP</strong>, or <strong>Network Folder/FTP</strong> settings.</li>
-            <li>Set the destination URL to the endpoint above.</li>
-            <li>Add a custom HTTP header <code className="bg-muted px-1 rounded font-mono text-xs">X-Scanner-Key</code> with the API key value.</li>
-            <li>Set output format to <strong>PDF</strong>, <strong>JPEG</strong>, or <strong>PNG</strong>.</li>
-            <li>Scan a document — it will appear on the <strong>Scan & Dispatch</strong> page instantly.</li>
+        <FieldRow label="Setup steps" hint="Compatible with Fujitsu, Canon, Ricoh, Kyocera, HP">
+          <ol className="text-xs text-muted-foreground space-y-1 list-decimal pl-3.5">
+            <li>Open scanner web UI → Scan to URL / Scan to HTTP</li>
+            <li>Set destination to the endpoint URL above</li>
+            <li>Add header <code className="bg-muted px-1 rounded">X-Scanner-Key</code> with the API key</li>
+            <li>Output format: PDF, JPEG, or PNG</li>
           </ol>
-        </div>
-      </CardContent>
-    </Card>
+        </FieldRow>
+      </div>
+    </>
   );
 }
 
@@ -259,35 +277,17 @@ export default function Settings() {
   const [testEmail, setTestEmail] = useState('');
   const [testSending, setTestSending] = useState(false);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [activeSection, setActiveSection] = useState<Section>('email');
 
   const form = useForm<SettingsForm>({
     resolver: zodResolver(settingsSchema),
     defaultValues: {
-      smtpUser: '',
-      emailProvider: 'resend',
-      emailProviderApiKey: '',
-      emailProviderDomain: '',
-      smsEnabled: false,
-      smsProvider: 'twilio',
-      smsProviderApiKey: '',
-      smsProviderSecret: '',
-      smsProviderFrom: '',
-      whatsappEnabled: false,
-      whatsappProvider: 'twilio',
-      whatsappProviderApiKey: '',
-      whatsappProviderFrom: '',
-      defaultNotificationChannel: 'email',
-      maxRecipients: 5,
-      maxFileSizeMb: 10,
-      retentionDays: 30,
-      scannerName: '',
-      scannerPaperSize: 'A4',
-      scannerResolutionDpi: 300,
-      scannerColorMode: 'color',
-      scannerFileFormat: 'pdf',
-      scannerDuplex: false,
-      scannerBrightness: 0,
-      scannerContrast: 0,
+      smtpUser: '', emailProvider: 'resend', emailProviderApiKey: '', emailProviderDomain: '',
+      smsEnabled: false, smsProvider: 'twilio', smsProviderApiKey: '', smsProviderSecret: '', smsProviderFrom: '',
+      whatsappEnabled: false, whatsappProvider: 'twilio', whatsappProviderApiKey: '', whatsappProviderFrom: '',
+      defaultNotificationChannel: 'email', maxRecipients: 5, maxFileSizeMb: 10, retentionDays: 30,
+      scannerName: '', scannerPaperSize: 'A4', scannerResolutionDpi: 300, scannerColorMode: 'color',
+      scannerFileFormat: 'pdf', scannerDuplex: false, scannerBrightness: 0, scannerContrast: 0,
     },
   });
 
@@ -327,18 +327,17 @@ export default function Settings() {
     updateSettings.mutate({ data: values as any }, {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: getGetSettingsQueryKey() });
-        toast({ title: 'Settings Saved', description: 'All configuration has been updated.' });
+        toast({ title: 'Settings saved' });
       },
       onError: (err) => {
-        toast({ title: 'Save Failed', description: (err as any).data?.error || 'Error saving settings.', variant: 'destructive' });
+        toast({ title: 'Save failed', description: (err as any).data?.error || 'Error saving settings.', variant: 'destructive' });
       },
     });
   };
 
   const handleTestEmail = async () => {
     if (!testEmail) return;
-    setTestSending(true);
-    setTestResult(null);
+    setTestSending(true); setTestResult(null);
     try {
       const res = await fetch(`${getApiUrl()}admin/test-email`, {
         method: 'POST',
@@ -348,714 +347,424 @@ export default function Settings() {
       });
       const data = await res.json();
       if (res.ok && data.success) {
-        setTestResult({ success: true, message: `Dispatched. Reference ID: ${data.messageId}` });
+        setTestResult({ success: true, message: `Dispatched. Ref: ${data.messageId}` });
       } else {
-        setTestResult({ success: false, message: data.error || 'Diagnostic dispatch failed' });
+        setTestResult({ success: false, message: data.error || 'Dispatch failed' });
       }
     } catch {
-      setTestResult({ success: false, message: 'Network error during dispatch' });
-    } finally {
-      setTestSending(false);
-    }
+      setTestResult({ success: false, message: 'Network error' });
+    } finally { setTestSending(false); }
   };
 
-  if (isLoading) return <div className="p-8 text-center text-muted-foreground"><Loader2 className="w-5 h-5 animate-spin mx-auto mb-2" />Loading settings…</div>;
+  if (isLoading) return (
+    <div className="flex items-center gap-2 p-8 text-sm text-muted-foreground">
+      <Loader2 className="w-4 h-4 animate-spin" /> Loading settings…
+    </div>
+  );
 
   const emailProvider = form.watch('emailProvider');
-  const smsEnabled = form.watch('smsEnabled');
+  const smsEnabled    = form.watch('smsEnabled');
   const whatsappEnabled = form.watch('whatsappEnabled');
   const retentionDays = form.watch('retentionDays');
   const scannerDuplex = form.watch('scannerDuplex');
 
+  const NAV: { id: Section; label: string; icon: React.ElementType }[] = [
+    { id: 'email',         label: 'Email',         icon: Mail },
+    { id: 'notifications', label: 'Notifications', icon: MessageSquare },
+    { id: 'storage',       label: 'Storage',       icon: Clock },
+    { id: 'scanner',       label: 'Scanner',       icon: Printer },
+  ];
+
   return (
-    <div className="max-w-4xl mx-auto pb-16">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
-        <p className="text-muted-foreground text-sm mt-1">Configure system behaviour, providers, retention, and scanner options.</p>
-      </div>
-
-      {/* Status bar */}
-      <div className="bg-card border border-border rounded-lg p-4 flex items-center gap-4 shadow-sm mb-6">
-        <div className="bg-primary/10 p-2 rounded shrink-0">
-          <Server className="w-5 h-5 text-primary" />
-        </div>
-        <div className="flex-1">
-          <div className="flex items-center gap-2">
-            <span className="font-semibold text-sm text-foreground">API Transport Active</span>
-            <Badge variant="outline" className="bg-green-500/10 text-green-600 border-0 text-[10px] uppercase tracking-widest font-bold">Connected</Badge>
-          </div>
-          <p className="text-xs text-muted-foreground mt-0.5">Outbound traffic routed via Resend API. Changes take effect immediately.</p>
-        </div>
-        <Button type="button" size="sm" variant="outline" onClick={() => { queryClient.invalidateQueries({ queryKey: getGetSettingsQueryKey() }); }}>
-          <RefreshCw className="w-3.5 h-3.5 mr-1.5" /> Refresh
-        </Button>
-      </div>
-
-      {!settings?.smtpUser && (
-        <div className="bg-amber-50 border border-amber-300 rounded-lg p-4 flex items-start gap-3 mb-6">
-          <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="h-full">
+        {/* ── Page header ─────────────────────────────────────────────── */}
+        <div className="flex items-center justify-between mb-5">
           <div>
-            <p className="font-semibold text-amber-800 text-sm">From address not configured — emails only reach your Resend account</p>
-            <p className="text-amber-700 text-xs mt-1">Set a verified sender address below (e.g. <code className="bg-amber-100 px-1 rounded">noreply@yourdomain.com</code>) to send to all recipients.</p>
+            <h1 className="text-xl font-semibold tracking-tight">Settings</h1>
+            <p className="text-xs text-muted-foreground mt-0.5">System configuration, integrations and scanner preferences</p>
+          </div>
+          <div className="flex items-center gap-3">
+            {/* Connection status */}
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground border border-border rounded px-2.5 py-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-green-500 inline-block" />
+              <span className="font-medium text-foreground">API Connected</span>
+              <button type="button" onClick={() => queryClient.invalidateQueries({ queryKey: getGetSettingsQueryKey() })}
+                className="ml-1 hover:text-foreground transition-colors">
+                <RefreshCw className="w-3 h-3" />
+              </button>
+            </div>
+            <Button type="submit" size="sm" disabled={updateSettings.isPending} className="gap-1.5 h-8">
+              {updateSettings.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+              Save changes
+            </Button>
           </div>
         </div>
-      )}
 
-      <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)}>
-          <Tabs defaultValue="email" className="space-y-6">
-            <TabsList className="grid grid-cols-4 w-full">
-              <TabsTrigger value="email" className="gap-1.5"><Mail className="w-3.5 h-3.5" /> Email</TabsTrigger>
-              <TabsTrigger value="notifications" className="gap-1.5"><MessageSquare className="w-3.5 h-3.5" /> Notifications</TabsTrigger>
-              <TabsTrigger value="storage" className="gap-1.5"><Clock className="w-3.5 h-3.5" /> Storage</TabsTrigger>
-              <TabsTrigger value="scanner" className="gap-1.5"><Printer className="w-3.5 h-3.5" /> Scanner</TabsTrigger>
-            </TabsList>
+        {/* ── From-address warning ─────────────────────────────────────── */}
+        {!settings?.smtpUser && (
+          <div className="flex items-center gap-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-3 py-2 mb-4">
+            <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+            <span><strong>From address not configured.</strong> Emails only reach your Resend account. Set a verified sender in the Email tab.</span>
+          </div>
+        )}
 
-            {/* ── EMAIL TAB ────────────────────────────────────────────── */}
-            <TabsContent value="email" className="space-y-6 mt-0">
+        {/* ── Two-column layout ────────────────────────────────────────── */}
+        <div className="flex gap-0 border border-border rounded-lg overflow-hidden bg-card min-h-[600px]">
 
-              {/* From address */}
-              <Card className="shadow-sm">
-                <CardHeader className="bg-muted/30 border-b border-border pb-4 pt-5">
-                  <CardTitle className="text-base font-semibold flex items-center gap-2">
-                    <ShieldAlert className="w-4 h-4 text-muted-foreground" /> Sender Identity
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="pt-6">
+          {/* Left nav */}
+          <nav className="w-44 shrink-0 border-r border-border bg-muted/20 py-3">
+            {NAV.map(({ id, label, icon: Icon }) => (
+              <button key={id} type="button" onClick={() => setActiveSection(id)}
+                className={cn(
+                  'w-full flex items-center gap-2.5 px-4 py-2 text-sm font-medium transition-colors text-left',
+                  activeSection === id
+                    ? 'text-foreground bg-background border-r-2 border-primary'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-background/60',
+                )}>
+                <Icon className="w-3.5 h-3.5 shrink-0" />
+                {label}
+              </button>
+            ))}
+          </nav>
+
+          {/* Content */}
+          <div className="flex-1 px-6 py-4 overflow-y-auto">
+
+            {/* ══ EMAIL ══════════════════════════════════════════════════ */}
+            {activeSection === 'email' && (
+              <div>
+                <SectionHeading>Sender Identity</SectionHeading>
+                <div className="border-b border-border/60">
                   <FormField control={form.control} name="smtpUser" render={({ field }) => (
-                    <FormItem className="max-w-md">
-                      <FormLabel className="text-xs uppercase font-semibold text-muted-foreground">From Address</FormLabel>
-                      <FormControl>
-                        <Input placeholder="noreply@domain.com" className="font-mono bg-background" {...field} />
-                      </FormControl>
-                      <FormDescription className="text-xs">Must be verified with your email provider. Defaults to <code className="bg-muted px-1 py-0.5 rounded text-foreground">onboarding@resend.dev</code></FormDescription>
-                      <FormMessage />
-                    </FormItem>
+                    <FieldRow label="From address" hint={`Defaults to onboarding@resend.dev`}>
+                      <Input placeholder="noreply@domain.com" className="font-mono h-8 text-sm" {...field} />
+                    </FieldRow>
                   )} />
-                </CardContent>
-              </Card>
+                </div>
 
-              {/* Email provider selection */}
-              <Card className="shadow-sm">
-                <CardHeader className="bg-muted/30 border-b border-border pb-4 pt-5">
-                  <CardTitle className="text-base font-semibold flex items-center gap-2">
-                    <Zap className="w-4 h-4 text-muted-foreground" /> Email Service Provider
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="pt-6 space-y-5">
+                <SectionHeading>Email Service Provider</SectionHeading>
+                <div className="border-b border-border/60">
                   <FormField control={form.control} name="emailProvider" render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-xs uppercase font-semibold text-muted-foreground">Provider</FormLabel>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-2">
-                        {EMAIL_PROVIDERS.map((p) => (
-                          <button key={p.id} type="button" onClick={() => field.onChange(p.id)}
-                            className={cn(
-                              'flex flex-col items-start p-3 rounded-lg border text-left transition-all',
-                              field.value === p.id
-                                ? 'border-primary bg-primary/5 shadow-sm'
-                                : 'border-border hover:border-primary/40 bg-background',
-                            )}>
-                            <div className="flex items-center justify-between w-full mb-1">
-                              <span className="font-semibold text-sm text-foreground">{p.name}</span>
-                              {field.value === p.id && (
-                                <div className="w-4 h-4 rounded-full bg-primary flex items-center justify-center">
-                                  <CheckCircle2 className="w-3 h-3 text-primary-foreground" />
-                                </div>
-                              )}
-                            </div>
-                            <span className="text-xs text-muted-foreground">{p.desc}</span>
-                          </button>
-                        ))}
-                      </div>
-                      <FormMessage />
-                    </FormItem>
+                    <FieldRow label="Provider" hint="Select the outbound email service">
+                      <ProviderList options={EMAIL_PROVIDERS} value={field.value} onChange={field.onChange} />
+                    </FieldRow>
                   )} />
 
-                  {/* Provider-specific fields */}
                   {emailProvider !== 'smtp' && (
                     <FormField control={form.control} name="emailProviderApiKey" render={({ field }) => (
-                      <FormItem className="max-w-md">
-                        <FormLabel className="text-xs uppercase font-semibold text-muted-foreground">API Key</FormLabel>
-                        <FormControl>
-                          <MaskedInput value={field.value ?? ''} onChange={field.onChange} placeholder={`${EMAIL_PROVIDERS.find(p => p.id === emailProvider)?.name ?? 'Provider'} API key`} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
+                      <FieldRow label="API key" hint="Your provider API secret">
+                        <MaskedInput value={field.value ?? ''} onChange={field.onChange}
+                          placeholder={`${EMAIL_PROVIDERS.find(p => p.id === emailProvider)?.name ?? 'Provider'} API key`} />
+                      </FieldRow>
                     )} />
                   )}
 
                   {(emailProvider === 'mailgun' || emailProvider === 'ses') && (
                     <FormField control={form.control} name="emailProviderDomain" render={({ field }) => (
-                      <FormItem className="max-w-md">
-                        <FormLabel className="text-xs uppercase font-semibold text-muted-foreground">
-                          {emailProvider === 'ses' ? 'AWS Region' : 'Mailgun Domain'}
-                        </FormLabel>
-                        <FormControl>
-                          <Input placeholder={emailProvider === 'ses' ? 'us-east-1' : 'mg.yourdomain.com'} className="font-mono bg-background" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
+                      <FieldRow label={emailProvider === 'ses' ? 'AWS region' : 'Domain'}>
+                        <Input placeholder={emailProvider === 'ses' ? 'us-east-1' : 'mg.yourdomain.com'} className="font-mono h-8 text-sm" {...field} />
+                      </FieldRow>
                     )} />
                   )}
 
                   {emailProvider === 'smtp' && (
-                    <div className="grid sm:grid-cols-2 gap-4 max-w-xl">
-                      <FormField control={form.control} name="smtpUser" render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-xs uppercase font-semibold text-muted-foreground">SMTP Username</FormLabel>
-                          <FormControl><Input placeholder="user@domain.com" className="font-mono bg-background" {...field} /></FormControl>
-                        </FormItem>
-                      )} />
-                      <FormField control={form.control} name="emailProviderApiKey" render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-xs uppercase font-semibold text-muted-foreground">SMTP Password</FormLabel>
-                          <FormControl>
-                            <MaskedInput value={field.value ?? ''} onChange={field.onChange} placeholder="password" />
-                          </FormControl>
-                        </FormItem>
-                      )} />
-                      <FormField control={form.control} name="emailProviderDomain" render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-xs uppercase font-semibold text-muted-foreground">SMTP Host</FormLabel>
-                          <FormControl><Input placeholder="smtp.domain.com" className="font-mono bg-background" {...field} /></FormControl>
-                        </FormItem>
-                      )} />
-                    </div>
+                    <FieldRow label="SMTP credentials" hint="Username, password and hostname">
+                      <div className="space-y-2">
+                        <FormField control={form.control} name="smtpUser" render={({ field }) => (
+                          <Input placeholder="username@domain.com" className="font-mono h-8 text-sm" {...field} />
+                        )} />
+                        <FormField control={form.control} name="emailProviderApiKey" render={({ field }) => (
+                          <MaskedInput value={field.value ?? ''} onChange={field.onChange} placeholder="Password" />
+                        )} />
+                        <FormField control={form.control} name="emailProviderDomain" render={({ field }) => (
+                          <Input placeholder="smtp.domain.com" className="font-mono h-8 text-sm" {...field} />
+                        )} />
+                      </div>
+                    </FieldRow>
                   )}
-                </CardContent>
-              </Card>
+                </div>
 
-              {/* Test email */}
-              <Card className="shadow-sm">
-                <CardHeader className="bg-muted/30 border-b border-border pb-4 pt-5">
-                  <CardTitle className="text-base font-semibold flex items-center gap-2">
-                    <Mail className="w-4 h-4 text-muted-foreground" /> Diagnostic Send
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="pt-6">
-                  <div className="flex gap-3 max-w-md">
-                    <Input
-                      type="email"
-                      placeholder="recipient@example.com"
-                      value={testEmail}
-                      onChange={(e) => { setTestEmail(e.target.value); setTestResult(null); }}
-                      className="bg-background"
-                    />
-                    <Button type="button" variant="outline" onClick={handleTestEmail} disabled={testSending || !testEmail}>
-                      {testSending ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Send Test'}
-                    </Button>
+                <SectionHeading>Diagnostic Send</SectionHeading>
+                <FieldRow label="Test email" hint="Verify delivery through the active provider">
+                  <div className="space-y-2">
+                    <div className="flex gap-2">
+                      <Input type="email" placeholder="recipient@example.com" value={testEmail}
+                        onChange={(e) => { setTestEmail(e.target.value); setTestResult(null); }}
+                        className="h-8 text-sm flex-1" />
+                      <Button type="button" variant="outline" size="sm" className="h-8 shrink-0"
+                        onClick={handleTestEmail} disabled={testSending || !testEmail}>
+                        {testSending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Send test'}
+                      </Button>
+                    </div>
+                    {testResult && (
+                      <div className={cn('flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded border',
+                        testResult.success ? 'bg-green-50 border-green-200 text-green-800' : 'bg-red-50 border-red-200 text-red-800')}>
+                        {testResult.success ? <CheckCircle2 className="w-3.5 h-3.5 shrink-0" /> : <XCircle className="w-3.5 h-3.5 shrink-0" />}
+                        {testResult.message}
+                      </div>
+                    )}
                   </div>
-                  {testResult && (
-                    <div className={cn('mt-3 flex items-start gap-2 text-sm p-3 rounded-lg border', testResult.success ? 'bg-green-50 border-green-200 text-green-800' : 'bg-red-50 border-red-200 text-red-800')}>
-                      {testResult.success ? <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" /> : <XCircle className="w-4 h-4 shrink-0 mt-0.5" />}
-                      {testResult.message}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </TabsContent>
+                </FieldRow>
+              </div>
+            )}
 
-            {/* ── NOTIFICATIONS TAB ────────────────────────────────────── */}
-            <TabsContent value="notifications" className="space-y-6 mt-0">
-
-              {/* Channel toggles */}
-              <Card className="shadow-sm">
-                <CardHeader className="bg-muted/30 border-b border-border pb-4 pt-5">
-                  <CardTitle className="text-base font-semibold flex items-center gap-2">
-                    <Zap className="w-4 h-4 text-muted-foreground" /> Active Channels
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="pt-6 space-y-4">
-                  <p className="text-sm text-muted-foreground">Choose which channels are used for dispatch notifications. Email is always available.</p>
-
-                  {/* Email — always on */}
-                  <div className="flex items-center justify-between p-4 rounded-lg border border-border bg-background">
-                    <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center">
-                        <Mail className="w-4 h-4 text-primary" />
-                      </div>
-                      <div>
-                        <p className="font-semibold text-sm">Email</p>
-                        <p className="text-xs text-muted-foreground">Routed via configured email provider</p>
-                      </div>
-                    </div>
-                    <Badge className="bg-green-100 text-green-800 border-green-200 text-[10px] uppercase font-bold">Always Active</Badge>
-                  </div>
-
-                  {/* SMS */}
-                  <div className="flex items-center justify-between p-4 rounded-lg border border-border bg-background">
-                    <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-lg bg-blue-500/10 flex items-center justify-center">
-                        <Phone className="w-4 h-4 text-blue-500" />
-                      </div>
-                      <div>
-                        <p className="font-semibold text-sm">SMS</p>
-                        <p className="text-xs text-muted-foreground">Text message notifications via SMS provider</p>
-                      </div>
-                    </div>
-                    <FormField control={form.control} name="smsEnabled" render={({ field }) => (
+            {/* ══ NOTIFICATIONS ══════════════════════════════════════════ */}
+            {activeSection === 'notifications' && (
+              <div>
+                <SectionHeading>Channels</SectionHeading>
+                <div className="border-b border-border/60">
+                  <FieldRow label="Email" hint="Always active — cannot be disabled">
+                    <Badge variant="outline" className="text-[10px] font-semibold uppercase tracking-wider text-green-700 border-green-300 bg-green-50">
+                      Always on
+                    </Badge>
+                  </FieldRow>
+                  <FormField control={form.control} name="smsEnabled" render={({ field }) => (
+                    <FieldRow label="SMS" hint="Text message notifications">
                       <Switch checked={field.value} onCheckedChange={field.onChange} />
-                    )} />
-                  </div>
-
-                  {/* WhatsApp */}
-                  <div className="flex items-center justify-between p-4 rounded-lg border border-border bg-background">
-                    <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-lg bg-green-500/10 flex items-center justify-center">
-                        <MessageSquare className="w-4 h-4 text-green-500" />
-                      </div>
-                      <div>
-                        <p className="font-semibold text-sm">WhatsApp</p>
-                        <p className="text-xs text-muted-foreground">WhatsApp message notifications</p>
-                      </div>
-                    </div>
-                    <FormField control={form.control} name="whatsappEnabled" render={({ field }) => (
-                      <Switch checked={field.value} onCheckedChange={field.onChange} />
-                    )} />
-                  </div>
-
-                  {/* Default channel */}
-                  <FormField control={form.control} name="defaultNotificationChannel" render={({ field }) => (
-                    <FormItem className="pt-2">
-                      <FormLabel className="text-xs uppercase font-semibold text-muted-foreground">Default Channel</FormLabel>
-                      <FormDescription className="text-xs mb-2">Used when the recipient has no channel preference.</FormDescription>
-                      <SelectButtons
-                        value={field.value}
-                        onChange={field.onChange}
-                        options={[
-                          { id: 'email', label: 'Email' },
-                          ...(smsEnabled ? [{ id: 'sms', label: 'SMS' }] : []),
-                          ...(whatsappEnabled ? [{ id: 'whatsapp', label: 'WhatsApp' }] : []),
-                        ]}
-                      />
-                    </FormItem>
+                    </FieldRow>
                   )} />
-                </CardContent>
-              </Card>
+                  <FormField control={form.control} name="whatsappEnabled" render={({ field }) => (
+                    <FieldRow label="WhatsApp" hint="WhatsApp message notifications">
+                      <Switch checked={field.value} onCheckedChange={field.onChange} />
+                    </FieldRow>
+                  )} />
+                  <FormField control={form.control} name="defaultNotificationChannel" render={({ field }) => (
+                    <FieldRow label="Default channel" hint="Used when recipient has no preference">
+                      <ChipGroup value={field.value} onChange={field.onChange} options={[
+                        { id: 'email', label: 'Email' },
+                        ...(smsEnabled ? [{ id: 'sms', label: 'SMS' }] : []),
+                        ...(whatsappEnabled ? [{ id: 'whatsapp', label: 'WhatsApp' }] : []),
+                      ]} />
+                    </FieldRow>
+                  )} />
+                </div>
 
-              {/* SMS Provider config */}
-              {smsEnabled && (
-                <Card className="shadow-sm border-blue-200">
-                  <CardHeader className="bg-blue-50/50 border-b border-blue-100 pb-4 pt-5">
-                    <CardTitle className="text-base font-semibold flex items-center gap-2">
-                      <Phone className="w-4 h-4 text-blue-500" /> SMS Provider Configuration
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="pt-6 space-y-5">
-                    <FormField control={form.control} name="smsProvider" render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-xs uppercase font-semibold text-muted-foreground">Provider</FormLabel>
-                        <div className="grid grid-cols-3 gap-2 mt-2">
-                          {SMS_PROVIDERS.map((p) => (
-                            <button key={p.id} type="button" onClick={() => field.onChange(p.id)}
-                              className={cn(
-                                'flex flex-col items-start p-3 rounded-lg border text-left transition-all',
-                                field.value === p.id ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/40 bg-background',
-                              )}>
-                              <span className="font-semibold text-sm text-foreground">{p.name}</span>
-                              <span className="text-xs text-muted-foreground mt-0.5">{p.desc}</span>
-                            </button>
-                          ))}
-                        </div>
-                      </FormItem>
-                    )} />
-
-                    <div className="grid sm:grid-cols-2 gap-4">
+                {smsEnabled && (
+                  <>
+                    <SectionHeading>SMS Provider</SectionHeading>
+                    <div className="border-b border-border/60">
+                      <FormField control={form.control} name="smsProvider" render={({ field }) => (
+                        <FieldRow label="Provider">
+                          <ProviderList options={SMS_PROVIDERS} value={field.value ?? ''} onChange={field.onChange} />
+                        </FieldRow>
+                      )} />
                       <FormField control={form.control} name="smsProviderApiKey" render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-xs uppercase font-semibold text-muted-foreground">Account SID / API Key</FormLabel>
-                          <FormControl><MaskedInput value={field.value ?? ''} onChange={field.onChange} placeholder="API key or SID" /></FormControl>
-                        </FormItem>
+                        <FieldRow label="Account SID / API key">
+                          <MaskedInput value={field.value ?? ''} onChange={field.onChange} placeholder="API key or SID" />
+                        </FieldRow>
                       )} />
                       <FormField control={form.control} name="smsProviderSecret" render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-xs uppercase font-semibold text-muted-foreground">Auth Token / Secret</FormLabel>
-                          <FormControl><MaskedInput value={field.value ?? ''} onChange={field.onChange} placeholder="Auth token or secret" /></FormControl>
-                        </FormItem>
+                        <FieldRow label="Auth token / secret">
+                          <MaskedInput value={field.value ?? ''} onChange={field.onChange} placeholder="Auth token or secret" />
+                        </FieldRow>
+                      )} />
+                      <FormField control={form.control} name="smsProviderFrom" render={({ field }) => (
+                        <FieldRow label="From number" hint="E.164 format e.g. +15551234567">
+                          <Input placeholder="+15551234567" className="font-mono h-8 text-sm" {...field} />
+                        </FieldRow>
                       )} />
                     </div>
-                    <FormField control={form.control} name="smsProviderFrom" render={({ field }) => (
-                      <FormItem className="max-w-xs">
-                        <FormLabel className="text-xs uppercase font-semibold text-muted-foreground">From Number</FormLabel>
-                        <FormControl><Input placeholder="+15551234567" className="font-mono bg-background" {...field} /></FormControl>
-                        <FormDescription className="text-xs">E.164 format (e.g. +15551234567)</FormDescription>
-                      </FormItem>
-                    )} />
-                  </CardContent>
-                </Card>
-              )}
+                  </>
+                )}
 
-              {/* WhatsApp Provider config */}
-              {whatsappEnabled && (
-                <Card className="shadow-sm border-green-200">
-                  <CardHeader className="bg-green-50/50 border-b border-green-100 pb-4 pt-5">
-                    <CardTitle className="text-base font-semibold flex items-center gap-2">
-                      <MessageSquare className="w-4 h-4 text-green-500" /> WhatsApp Provider Configuration
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="pt-6 space-y-5">
-                    <FormField control={form.control} name="whatsappProvider" render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-xs uppercase font-semibold text-muted-foreground">Provider</FormLabel>
-                        <div className="grid sm:grid-cols-2 gap-2 mt-2">
-                          {WHATSAPP_PROVIDERS.map((p) => (
-                            <button key={p.id} type="button" onClick={() => field.onChange(p.id)}
-                              className={cn(
-                                'flex flex-col items-start p-3 rounded-lg border text-left transition-all',
-                                field.value === p.id ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/40 bg-background',
-                              )}>
-                              <span className="font-semibold text-sm text-foreground">{p.name}</span>
-                              <span className="text-xs text-muted-foreground mt-0.5">{p.desc}</span>
-                            </button>
-                          ))}
-                        </div>
-                      </FormItem>
-                    )} />
-                    <div className="grid sm:grid-cols-2 gap-4">
+                {whatsappEnabled && (
+                  <>
+                    <SectionHeading>WhatsApp Provider</SectionHeading>
+                    <div className="border-b border-border/60">
+                      <FormField control={form.control} name="whatsappProvider" render={({ field }) => (
+                        <FieldRow label="Provider">
+                          <ProviderList options={WHATSAPP_PROVIDERS} value={field.value ?? ''} onChange={field.onChange} />
+                        </FieldRow>
+                      )} />
                       <FormField control={form.control} name="whatsappProviderApiKey" render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-xs uppercase font-semibold text-muted-foreground">API Key / Token</FormLabel>
-                          <FormControl><MaskedInput value={field.value ?? ''} onChange={field.onChange} placeholder="API key or token" /></FormControl>
-                        </FormItem>
+                        <FieldRow label="API key / token">
+                          <MaskedInput value={field.value ?? ''} onChange={field.onChange} placeholder="API key or token" />
+                        </FieldRow>
                       )} />
                       <FormField control={form.control} name="whatsappProviderFrom" render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-xs uppercase font-semibold text-muted-foreground">From Number / ID</FormLabel>
-                          <FormControl><Input placeholder="+15551234567" className="font-mono bg-background" {...field} /></FormControl>
-                        </FormItem>
+                        <FieldRow label="From number / ID">
+                          <Input placeholder="+15551234567" className="font-mono h-8 text-sm" {...field} />
+                        </FieldRow>
                       )} />
                     </div>
-                  </CardContent>
-                </Card>
-              )}
-            </TabsContent>
+                  </>
+                )}
+              </div>
+            )}
 
-            {/* ── STORAGE TAB ──────────────────────────────────────────── */}
-            <TabsContent value="storage" className="space-y-6 mt-0">
-
-              {/* Retention policy */}
-              <Card className="shadow-sm">
-                <CardHeader className="bg-muted/30 border-b border-border pb-4 pt-5">
-                  <CardTitle className="text-base font-semibold flex items-center gap-2">
-                    <Clock className="w-4 h-4 text-muted-foreground" /> Document Retention Policy
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="pt-6 space-y-5">
-                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 flex items-start gap-3">
-                    <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
-                    <div className="text-sm">
-                      <p className="font-semibold text-amber-800">Permanent deletion</p>
-                      <p className="text-amber-700 mt-0.5">Documents older than the retention period are permanently deleted from the server and database. This cannot be undone.</p>
-                    </div>
-                  </div>
-
-                  <FormField control={form.control} name="retentionDays" render={({ field }) => (
-                    <FormItem className="max-w-xs">
-                      <FormLabel className="text-xs uppercase font-semibold text-muted-foreground">Retention Period (days)</FormLabel>
-                      <FormControl>
-                        <Input type="number" min={0} max={3650} className="font-mono bg-background" {...field} />
-                      </FormControl>
-                      <FormDescription className="text-xs">
-                        Set to <strong>0</strong> to disable automatic deletion. Max 3650 days (10 years).
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )} />
-
-                  {/* Quick presets */}
-                  <div>
-                    <p className="text-xs text-muted-foreground mb-2 uppercase font-semibold tracking-wider">Quick Presets</p>
-                    <div className="flex flex-wrap gap-2">
-                      {[
-                        { label: 'Disabled', days: 0 },
-                        { label: '7 days', days: 7 },
-                        { label: '30 days', days: 30 },
-                        { label: '90 days', days: 90 },
-                        { label: '1 year', days: 365 },
-                        { label: '7 years', days: 2555 },
-                      ].map((p) => (
-                        <button key={p.days} type="button"
-                          onClick={() => form.setValue('retentionDays', p.days)}
-                          className={cn(
-                            'px-3 py-1.5 rounded-lg text-xs font-medium border transition-all',
-                            retentionDays === p.days
-                              ? 'bg-primary text-primary-foreground border-primary'
-                              : 'bg-background border-border text-muted-foreground hover:border-primary/50',
-                          )}>
-                          {p.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Summary */}
-                  <div className="bg-muted/40 rounded-lg p-4 border border-border">
-                    <div className="flex items-center gap-2 text-sm">
-                      {retentionDays === 0 ? (
-                        <>
-                          <div className="w-2 h-2 rounded-full bg-green-500" />
-                          <span className="font-medium text-foreground">Automatic deletion disabled — documents are kept indefinitely.</span>
-                        </>
-                      ) : (
-                        <>
-                          <div className="w-2 h-2 rounded-full bg-amber-500" />
-                          <span className="font-medium text-foreground">Documents older than <strong>{retentionDays} day{retentionDays !== 1 ? 's' : ''}</strong> will be automatically and permanently deleted every 6 hours.</span>
-                        </>
+            {/* ══ STORAGE ════════════════════════════════════════════════ */}
+            {activeSection === 'storage' && (
+              <div>
+                <SectionHeading>Retention Policy</SectionHeading>
+                <div className="border-b border-border/60">
+                  <FieldRow label="Retention period" hint="Documents older than this are permanently deleted every 6 h">
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <FormField control={form.control} name="retentionDays" render={({ field }) => (
+                          <Input type="number" min={0} max={3650} className="font-mono h-8 text-sm w-24" {...field} />
+                        )} />
+                        <span className="text-sm text-muted-foreground">days</span>
+                        <span className="text-xs text-muted-foreground">(0 = disabled)</span>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {[
+                          { label: 'Off', days: 0 }, { label: '7 d', days: 7 }, { label: '30 d', days: 30 },
+                          { label: '90 d', days: 90 }, { label: '1 yr', days: 365 }, { label: '7 yr', days: 2555 },
+                        ].map((p) => (
+                          <button key={p.days} type="button" onClick={() => form.setValue('retentionDays', p.days)}
+                            className={cn('px-2 py-0.5 rounded text-xs font-medium border transition-all',
+                              retentionDays === p.days
+                                ? 'bg-primary text-primary-foreground border-primary'
+                                : 'bg-background border-border text-muted-foreground hover:border-primary/50')}>
+                            {p.label}
+                          </button>
+                        ))}
+                      </div>
+                      {retentionDays > 0 && (
+                        <p className="text-xs text-amber-700 flex items-center gap-1">
+                          <AlertTriangle className="w-3 h-3 shrink-0" />
+                          Documents older than {retentionDays} day{retentionDays !== 1 ? 's' : ''} will be permanently deleted.
+                        </p>
                       )}
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
+                  </FieldRow>
+                </div>
 
-              {/* Limits */}
-              <Card className="shadow-sm">
-                <CardHeader className="bg-muted/30 border-b border-border pb-4 pt-5">
-                  <CardTitle className="text-base font-semibold flex items-center gap-2">
-                    <SlidersHorizontal className="w-4 h-4 text-muted-foreground" /> Upload Constraints
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="pt-6 grid sm:grid-cols-2 gap-8">
+                <SectionHeading>Upload Limits</SectionHeading>
+                <div className="border-b border-border/60">
                   <FormField control={form.control} name="maxFileSizeMb" render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-xs uppercase font-semibold text-muted-foreground">Max File Size (MB)</FormLabel>
-                      <FormControl><Input type="number" className="font-mono bg-background" {...field} /></FormControl>
-                      <FormDescription className="text-xs">Hard limit per upload.</FormDescription>
-                      <FormMessage />
-                    </FormItem>
+                    <FieldRow label="Max file size" hint="Hard limit per upload">
+                      <div className="flex items-center gap-2">
+                        <Input type="number" className="font-mono h-8 text-sm w-24" {...field} />
+                        <span className="text-sm text-muted-foreground">MB</span>
+                      </div>
+                    </FieldRow>
                   )} />
                   <FormField control={form.control} name="maxRecipients" render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-xs uppercase font-semibold text-muted-foreground">Max Recipients</FormLabel>
-                      <FormControl><Input type="number" className="font-mono bg-background" {...field} /></FormControl>
-                      <FormDescription className="text-xs">Max mailroom targets per dispatch.</FormDescription>
-                      <FormMessage />
-                    </FormItem>
+                    <FieldRow label="Max recipients" hint="Maximum targets per dispatch">
+                      <div className="flex items-center gap-2">
+                        <Input type="number" className="font-mono h-8 text-sm w-24" {...field} />
+                        <span className="text-sm text-muted-foreground">recipients</span>
+                      </div>
+                    </FieldRow>
                   )} />
-                </CardContent>
-              </Card>
+                </div>
 
-              {/* File types */}
-              <Card className="shadow-sm">
-                <CardHeader className="bg-muted/30 border-b border-border pb-4 pt-5">
-                  <CardTitle className="text-base font-semibold flex items-center gap-2">
-                    <FileType className="w-4 h-4 text-muted-foreground" /> Accepted File Types
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="pt-5">
-                  <div className="flex flex-wrap gap-2 mb-3">
+                <SectionHeading>Accepted File Types</SectionHeading>
+                <FieldRow label="Allowed formats" hint="Configured at database level">
+                  <div className="flex flex-wrap gap-1.5">
                     {(settings?.allowedFileTypes ?? 'pdf,jpg,jpeg,png').split(',').map((ext) => (
-                      <span key={ext} className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-bold uppercase border border-primary/20">
+                      <span key={ext} className="px-2 py-0.5 rounded border border-border bg-muted text-xs font-mono font-semibold uppercase text-foreground">
                         .{ext.trim()}
                       </span>
                     ))}
                   </div>
-                  <p className="text-xs text-muted-foreground">Configured in the database. Contact your system administrator to change accepted types.</p>
-                </CardContent>
-              </Card>
-            </TabsContent>
+                </FieldRow>
+              </div>
+            )}
 
-            {/* ── SCANNER TAB ──────────────────────────────────────────── */}
-            <TabsContent value="scanner" className="space-y-6 mt-0">
+            {/* ══ SCANNER ════════════════════════════════════════════════ */}
+            {activeSection === 'scanner' && (
+              <div>
+                <ScanToUrlSection />
 
-              {/* Scan-to-URL integration */}
-              <ScanToUrlCard />
-
-              {/* Scanner identity */}
-              <Card className="shadow-sm">
-                <CardHeader className="bg-muted/30 border-b border-border pb-4 pt-5">
-                  <CardTitle className="text-base font-semibold flex items-center gap-2">
-                    <Printer className="w-4 h-4 text-muted-foreground" /> Scanner Device
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="pt-6">
+                <SectionHeading>Device</SectionHeading>
+                <div className="border-b border-border/60">
                   <FormField control={form.control} name="scannerName" render={({ field }) => (
-                    <FormItem className="max-w-md">
-                      <FormLabel className="text-xs uppercase font-semibold text-muted-foreground">Scanner Name / Model</FormLabel>
-                      <FormControl>
-                        <Input placeholder="e.g. Fujitsu fi-7160, HP ScanJet Pro 3600" className="bg-background" {...field} />
-                      </FormControl>
-                      <FormDescription className="text-xs">Display label for the active scanner device.</FormDescription>
-                      <FormMessage />
-                    </FormItem>
+                    <FieldRow label="Scanner model" hint="Display label for the active device">
+                      <Input placeholder="e.g. Fujitsu fi-7160" className="h-8 text-sm" {...field} />
+                    </FieldRow>
                   )} />
-                </CardContent>
-              </Card>
+                </div>
 
-              {/* Page & format */}
-              <Card className="shadow-sm">
-                <CardHeader className="bg-muted/30 border-b border-border pb-4 pt-5">
-                  <CardTitle className="text-base font-semibold flex items-center gap-2">
-                    <ScanLine className="w-4 h-4 text-muted-foreground" /> Page & Format Settings
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="pt-6 space-y-6">
-                  {/* Paper size */}
+                <SectionHeading>Page & Format</SectionHeading>
+                <div className="border-b border-border/60">
                   <FormField control={form.control} name="scannerPaperSize" render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-xs uppercase font-semibold text-muted-foreground">Paper Size</FormLabel>
-                      <SelectButtons value={field.value} onChange={field.onChange}
+                    <FieldRow label="Paper size">
+                      <ChipGroup value={field.value} onChange={field.onChange}
                         options={PAPER_SIZES.map(s => ({ id: s, label: s }))} />
-                      <FormMessage />
-                    </FormItem>
+                    </FieldRow>
                   )} />
-
-                  {/* Resolution */}
                   <FormField control={form.control} name="scannerResolutionDpi" render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-xs uppercase font-semibold text-muted-foreground">Resolution (DPI)</FormLabel>
-                      <div className="flex flex-wrap gap-2 mt-1">
+                    <FieldRow label="Resolution" hint="300 DPI recommended for documents">
+                      <div className="flex flex-wrap gap-1.5 items-center">
                         {DPI_OPTIONS.map((dpi) => (
                           <button key={dpi} type="button" onClick={() => field.onChange(dpi)}
-                            className={cn(
-                              'px-3 py-1.5 rounded-lg text-sm font-medium border transition-all font-mono',
+                            className={cn('px-2 py-0.5 rounded border text-xs font-mono font-medium transition-all',
                               field.value === dpi
                                 ? 'bg-primary text-primary-foreground border-primary'
-                                : 'bg-background border-border text-muted-foreground hover:border-primary/50',
-                            )}>
+                                : 'bg-background border-border text-muted-foreground hover:border-primary/50')}>
                             {dpi}
                           </button>
                         ))}
-                        <Input
-                          type="number"
-                          value={field.value}
-                          onChange={(e) => field.onChange(Number(e.target.value))}
-                          className="w-24 font-mono bg-background h-9"
-                          placeholder="Custom"
-                        />
+                        <Input type="number" value={field.value} onChange={(e) => field.onChange(Number(e.target.value))}
+                          className="w-20 font-mono h-7 text-xs" placeholder="Custom" />
+                        <span className="text-xs text-muted-foreground">DPI</span>
                       </div>
-                      <FormDescription className="text-xs mt-1">Higher DPI = better quality, larger files. 300 DPI recommended for documents.</FormDescription>
-                      <FormMessage />
-                    </FormItem>
+                    </FieldRow>
                   )} />
-
-                  {/* File format */}
                   <FormField control={form.control} name="scannerFileFormat" render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-xs uppercase font-semibold text-muted-foreground">Output Format</FormLabel>
-                      <SelectButtons value={field.value} onChange={field.onChange}
+                    <FieldRow label="Output format">
+                      <ChipGroup value={field.value} onChange={field.onChange}
                         options={FILE_FORMATS.map(f => ({ id: f, label: f.toUpperCase() }))} />
-                      <FormDescription className="text-xs mt-1">PDF preserves multi-page layout. JPG/PNG produce single image files.</FormDescription>
-                      <FormMessage />
-                    </FormItem>
+                    </FieldRow>
                   )} />
-                </CardContent>
-              </Card>
+                </div>
 
-              {/* Image settings */}
-              <Card className="shadow-sm">
-                <CardHeader className="bg-muted/30 border-b border-border pb-4 pt-5">
-                  <CardTitle className="text-base font-semibold flex items-center gap-2">
-                    <Camera className="w-4 h-4 text-muted-foreground" /> Image Settings
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="pt-6 space-y-6">
-                  {/* Color mode */}
+                <SectionHeading>Image</SectionHeading>
+                <div className="border-b border-border/60">
                   <FormField control={form.control} name="scannerColorMode" render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-xs uppercase font-semibold text-muted-foreground">Color Mode</FormLabel>
-                      <SelectButtons value={field.value} onChange={field.onChange}
+                    <FieldRow label="Color mode">
+                      <ChipGroup value={field.value} onChange={field.onChange}
                         options={COLOR_MODES.map(c => ({ id: c.id, label: c.label }))} />
-                      <FormMessage />
-                    </FormItem>
+                    </FieldRow>
                   )} />
-
-                  {/* Duplex */}
                   <FormField control={form.control} name="scannerDuplex" render={({ field }) => (
-                    <FormItem>
-                      <div className="flex items-center justify-between p-4 rounded-lg border border-border bg-background max-w-sm">
-                        <div>
-                          <FormLabel className="font-semibold text-sm text-foreground cursor-pointer">Duplex Scanning</FormLabel>
-                          <p className="text-xs text-muted-foreground mt-0.5">Scan both sides of the page automatically</p>
-                        </div>
-                        <FormControl>
-                          <Switch checked={field.value} onCheckedChange={field.onChange} />
-                        </FormControl>
-                      </div>
-                      {scannerDuplex && (
-                        <p className="text-xs text-primary mt-1 font-medium">✓ Duplex mode enabled — both sides will be scanned per sheet</p>
-                      )}
-                    </FormItem>
+                    <FieldRow label="Duplex scanning" hint="Scan both sides automatically">
+                      <Switch checked={field.value} onCheckedChange={field.onChange} />
+                    </FieldRow>
                   )} />
-
-                  {/* Brightness */}
                   <FormField control={form.control} name="scannerBrightness" render={({ field }) => (
-                    <FormItem className="max-w-xs">
-                      <div className="flex items-center justify-between">
-                        <FormLabel className="text-xs uppercase font-semibold text-muted-foreground">Brightness</FormLabel>
-                        <span className="text-xs font-mono text-foreground bg-muted px-2 py-0.5 rounded">
-                          {field.value > 0 ? `+${field.value}` : field.value}
-                        </span>
-                      </div>
-                      <input
-                        type="range" min={-100} max={100} step={5}
-                        value={field.value}
+                    <FieldRow label="Brightness" hint={`${field.value > 0 ? '+' : ''}${field.value}`}>
+                      <input type="range" min={-100} max={100} step={5} value={field.value}
                         onChange={(e) => field.onChange(Number(e.target.value))}
-                        className="w-full accent-primary"
-                      />
-                      <div className="flex justify-between text-xs text-muted-foreground">
-                        <span>Darker</span><span>Default (0)</span><span>Brighter</span>
-                      </div>
-                    </FormItem>
+                        className="w-full accent-primary" />
+                    </FieldRow>
                   )} />
-
-                  {/* Contrast */}
                   <FormField control={form.control} name="scannerContrast" render={({ field }) => (
-                    <FormItem className="max-w-xs">
-                      <div className="flex items-center justify-between">
-                        <FormLabel className="text-xs uppercase font-semibold text-muted-foreground">Contrast</FormLabel>
-                        <span className="text-xs font-mono text-foreground bg-muted px-2 py-0.5 rounded">
-                          {field.value > 0 ? `+${field.value}` : field.value}
-                        </span>
-                      </div>
-                      <input
-                        type="range" min={-100} max={100} step={5}
-                        value={field.value}
+                    <FieldRow label="Contrast" hint={`${field.value > 0 ? '+' : ''}${field.value}`}>
+                      <input type="range" min={-100} max={100} step={5} value={field.value}
                         onChange={(e) => field.onChange(Number(e.target.value))}
-                        className="w-full accent-primary"
-                      />
-                      <div className="flex justify-between text-xs text-muted-foreground">
-                        <span>Lower</span><span>Default (0)</span><span>Higher</span>
-                      </div>
-                    </FormItem>
+                        className="w-full accent-primary" />
+                    </FieldRow>
                   )} />
-                </CardContent>
-              </Card>
+                </div>
 
-              {/* Scan summary */}
-              <Card className="shadow-sm bg-muted/20">
-                <CardContent className="pt-5 pb-5">
-                  <p className="text-xs uppercase font-semibold text-muted-foreground mb-3">Current Scanner Configuration</p>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
-                    {[
-                      { label: 'Paper size', value: form.watch('scannerPaperSize') },
-                      { label: 'Resolution', value: `${form.watch('scannerResolutionDpi')} DPI` },
-                      { label: 'Color mode', value: COLOR_MODES.find(c => c.id === form.watch('scannerColorMode'))?.label ?? '-' },
-                      { label: 'Format', value: (form.watch('scannerFileFormat') ?? 'pdf').toUpperCase() },
-                      { label: 'Duplex', value: form.watch('scannerDuplex') ? 'On' : 'Off' },
-                      { label: 'Brightness', value: form.watch('scannerBrightness') > 0 ? `+${form.watch('scannerBrightness')}` : String(form.watch('scannerBrightness')) },
-                      { label: 'Contrast', value: form.watch('scannerContrast') > 0 ? `+${form.watch('scannerContrast')}` : String(form.watch('scannerContrast')) },
-                      { label: 'Scanner', value: form.watch('scannerName') || 'Not set' },
-                    ].map((item) => (
-                      <div key={item.label}>
-                        <p className="text-muted-foreground text-xs">{item.label}</p>
-                        <p className="font-bold text-foreground font-mono text-sm">{item.value}</p>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-          </Tabs>
+                <SectionHeading>Active Configuration</SectionHeading>
+                <div className="grid grid-cols-4 gap-x-6 gap-y-3 pb-4">
+                  {[
+                    { label: 'Paper', value: form.watch('scannerPaperSize') },
+                    { label: 'DPI',   value: `${form.watch('scannerResolutionDpi')}` },
+                    { label: 'Format', value: (form.watch('scannerFileFormat') ?? 'pdf').toUpperCase() },
+                    { label: 'Color', value: COLOR_MODES.find(c => c.id === form.watch('scannerColorMode'))?.label ?? '-' },
+                    { label: 'Duplex', value: form.watch('scannerDuplex') ? 'On' : 'Off' },
+                    { label: 'Brightness', value: `${form.watch('scannerBrightness') > 0 ? '+' : ''}${form.watch('scannerBrightness')}` },
+                    { label: 'Contrast', value: `${form.watch('scannerContrast') > 0 ? '+' : ''}${form.watch('scannerContrast')}` },
+                    { label: 'Device', value: form.watch('scannerName') || '—' },
+                  ].map((item) => (
+                    <div key={item.label}>
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{item.label}</p>
+                      <p className="text-sm font-semibold font-mono text-foreground mt-0.5">{item.value}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
-          {/* Save button — always visible */}
-          <div className="fixed bottom-6 right-6 z-50">
-            <Button type="submit" disabled={updateSettings.isPending} size="lg" className="shadow-lg shadow-primary/20 gap-2">
-              {updateSettings.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-              Save Settings
-            </Button>
           </div>
-        </form>
-      </Form>
-    </div>
+        </div>
+      </form>
+    </Form>
   );
 }
