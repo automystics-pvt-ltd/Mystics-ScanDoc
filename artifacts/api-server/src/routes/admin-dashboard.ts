@@ -1,25 +1,24 @@
 import { Router, type IRouter } from "express";
-import { sql, desc, eq, and, gte } from "drizzle-orm";
+import { sql, desc, eq, and, gte, lt } from "drizzle-orm";
 import { db, usersTable, documentsTable, emailLogsTable, auditLogsTable } from "@workspace/db";
 import { requireAuth, requireAdmin } from "../middlewares/auth";
 
 const router: IRouter = Router();
 
-// GET /admin/dashboard
-router.get("/admin/dashboard", requireAuth, requireAdmin, async (_req, res): Promise<void> => {
+// GET /admin/dashboard?days=30
+router.get("/admin/dashboard", requireAuth, requireAdmin, async (req, res): Promise<void> => {
+  const days = Math.min(90, Math.max(7, Number(req.query.days) || 30));
+
   const now = new Date();
 
-  // Today midnight
   const today = new Date(now);
   today.setHours(0, 0, 0, 0);
 
-  // Yesterday midnight
   const yesterday = new Date(today);
   yesterday.setDate(yesterday.getDate() - 1);
 
-  // 30 days ago
-  const thirtyDaysAgo = new Date(today);
-  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 29); // inclusive of today = 30 days
+  const seriesStart = new Date(today);
+  seriesStart.setDate(seriesStart.getDate() - (days - 1));
 
   const [
     [totalUsersRow],
@@ -42,14 +41,14 @@ router.get("/admin/dashboard", requireAuth, requireAdmin, async (_req, res): Pro
     db.select({ count: sql<number>`count(*)` }).from(documentsTable),
     db.select({ count: sql<number>`count(*)` }).from(emailLogsTable).where(eq(emailLogsTable.status, "sent")),
     db.select({ count: sql<number>`count(*)` }).from(emailLogsTable).where(eq(emailLogsTable.status, "failed")),
-    // today counts
+    // today
     db.select({ count: sql<number>`count(*)` }).from(documentsTable).where(gte(documentsTable.uploadedAt, today)),
     db.select({ count: sql<number>`count(*)` }).from(emailLogsTable).where(and(eq(emailLogsTable.status, "sent"), gte(emailLogsTable.sentAt, today))),
-    // yesterday counts (for trends)
-    db.select({ count: sql<number>`count(*)` }).from(documentsTable).where(and(gte(documentsTable.uploadedAt, yesterday), sql`${documentsTable.uploadedAt} < ${today}`)),
-    db.select({ count: sql<number>`count(*)` }).from(emailLogsTable).where(and(eq(emailLogsTable.status, "sent"), gte(emailLogsTable.sentAt, yesterday), sql`${emailLogsTable.sentAt} < ${today}`)),
-    db.select({ count: sql<number>`count(*)` }).from(usersTable).where(sql`${usersTable.createdAt} < ${today}`),
-    // recent audit log activity
+    // yesterday (for trend delta)
+    db.select({ count: sql<number>`count(*)` }).from(documentsTable).where(and(gte(documentsTable.uploadedAt, yesterday), lt(documentsTable.uploadedAt, today))),
+    db.select({ count: sql<number>`count(*)` }).from(emailLogsTable).where(and(eq(emailLogsTable.status, "sent"), gte(emailLogsTable.sentAt, yesterday), lt(emailLogsTable.sentAt, today))),
+    db.select({ count: sql<number>`count(*)` }).from(usersTable).where(lt(usersTable.createdAt, today)),
+    // recent audit log
     db
       .select({
         id: auditLogsTable.id,
@@ -64,28 +63,27 @@ router.get("/admin/dashboard", requireAuth, requireAdmin, async (_req, res): Pro
       .leftJoin(usersTable, eq(auditLogsTable.userId, usersTable.id))
       .orderBy(desc(auditLogsTable.createdAt))
       .limit(20),
-    // 30-day document volume per day
-    db.execute(sql`
-      SELECT
-        DATE_TRUNC('day', "uploaded_at") AS day,
-        COUNT(*) AS count
-      FROM documents
-      WHERE "uploaded_at" >= ${thirtyDaysAgo}
-      GROUP BY 1
-      ORDER BY 1 ASC
-    `),
-    // 30-day email sent volume per day
-    db.execute(sql`
-      SELECT
-        DATE_TRUNC('day', "sent_at") AS day,
-        COUNT(*) AS count
-      FROM email_logs
-      WHERE "sent_at" >= ${thirtyDaysAgo}
-        AND status = 'sent'
-      GROUP BY 1
-      ORDER BY 1 ASC
-    `),
-    // recent failed emails for alerts panel
+    // daily document counts — use drizzle select so result is typed []
+    db
+      .select({
+        day: sql<string>`DATE(${documentsTable.uploadedAt})`,
+        count: sql<number>`COUNT(*)`,
+      })
+      .from(documentsTable)
+      .where(gte(documentsTable.uploadedAt, seriesStart))
+      .groupBy(sql`DATE(${documentsTable.uploadedAt})`)
+      .orderBy(sql`DATE(${documentsTable.uploadedAt})`),
+    // daily sent-email counts
+    db
+      .select({
+        day: sql<string>`DATE(${emailLogsTable.sentAt})`,
+        count: sql<number>`COUNT(*)`,
+      })
+      .from(emailLogsTable)
+      .where(and(eq(emailLogsTable.status, "sent"), gte(emailLogsTable.sentAt, seriesStart)))
+      .groupBy(sql`DATE(${emailLogsTable.sentAt})`)
+      .orderBy(sql`DATE(${emailLogsTable.sentAt})`),
+    // recent failed emails for alerts
     db
       .select({
         id: emailLogsTable.id,
@@ -100,21 +98,19 @@ router.get("/admin/dashboard", requireAuth, requireAdmin, async (_req, res): Pro
       .limit(5),
   ]);
 
-  // Build a complete 30-day series (fill missing days with 0)
+  // Build complete N-day series (fill missing days with 0)
   const docMap = new Map<string, number>();
-  for (const row of (docSeries as any).rows ?? docSeries) {
-    const day = new Date(row.day).toISOString().slice(0, 10);
-    docMap.set(day, Number(row.count));
+  for (const row of docSeries) {
+    docMap.set(String(row.day), Number(row.count));
   }
   const emailMap = new Map<string, number>();
-  for (const row of (emailSeries as any).rows ?? emailSeries) {
-    const day = new Date(row.day).toISOString().slice(0, 10);
-    emailMap.set(day, Number(row.count));
+  for (const row of emailSeries) {
+    emailMap.set(String(row.day), Number(row.count));
   }
 
   const volumeSeries: { date: string; documents: number; emails: number }[] = [];
-  for (let i = 0; i < 30; i++) {
-    const d = new Date(thirtyDaysAgo);
+  for (let i = 0; i < days; i++) {
+    const d = new Date(seriesStart);
     d.setDate(d.getDate() + i);
     const key = d.toISOString().slice(0, 10);
     volumeSeries.push({ date: key, documents: docMap.get(key) ?? 0, emails: emailMap.get(key) ?? 0 });
@@ -135,7 +131,6 @@ router.get("/admin/dashboard", requireAuth, requireAdmin, async (_req, res): Pro
     failedEmails: Number(failedEmailsRow?.count ?? 0),
     documentsToday: docsToday,
     emailsToday: emailsToday,
-    // Trends: delta vs yesterday
     trends: {
       documents: docsToday - docsYesterday,
       emails: emailsToday - emailsYesterday,

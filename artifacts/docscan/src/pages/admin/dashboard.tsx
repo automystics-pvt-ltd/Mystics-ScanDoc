@@ -1,26 +1,44 @@
 import { useGetDashboardStats } from '@workspace/api-client-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
-  Users, FileText, Send, AlertCircle, TrendingUp, TrendingDown,
+  Users, FileText, Mail, AlertCircle, TrendingUp, TrendingDown,
   Clock, ArrowRight, Minus, CheckCircle,
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { useLocation } from 'wouter';
+import { useState } from 'react';
 
-// ── Tiny bar-chart drawn with divs ────────────────────────────────────────────
+// ── Date-range selector ───────────────────────────────────────────────────────
+const RANGE_OPTIONS = [
+  { label: '7d', days: 7 },
+  { label: '14d', days: 14 },
+  { label: '30d', days: 30 },
+];
+
+// ── Volume bar chart ──────────────────────────────────────────────────────────
 function VolumeChart({ series }: { series: { date: string; documents: number; emails: number }[] }) {
   const maxVal = Math.max(1, ...series.map(d => Math.max(d.documents, d.emails)));
 
   return (
     <div className="flex items-end gap-[3px] h-full w-full">
       {series.map((d) => {
-        const docH = Math.max(4, (d.documents / maxVal) * 100);
-        const emailH = Math.max(4, (d.emails / maxVal) * 100);
+        const docH = Math.max(3, (d.documents / maxVal) * 100);
+        const emailH = Math.max(3, (d.emails / maxVal) * 100);
         const label = format(parseISO(d.date), 'MMM d');
         return (
-          <div key={d.date} className="flex-1 flex items-end gap-[1px] group relative" title={`${label}\nDocs: ${d.documents}\nEmails: ${d.emails}`}>
-            <div className="flex-1 bg-primary rounded-t-sm opacity-80 group-hover:opacity-100 transition-opacity" style={{ height: `${docH}%` }} />
-            <div className="flex-1 bg-primary/30 rounded-t-sm group-hover:bg-primary/50 transition-colors" style={{ height: `${emailH}%` }} />
+          <div
+            key={d.date}
+            className="flex-1 flex items-end gap-[1px] group relative cursor-default"
+            title={`${label}\nDocs: ${d.documents}\nEmails sent: ${d.emails}`}
+          >
+            <div
+              className="flex-1 bg-primary rounded-t-sm opacity-80 group-hover:opacity-100 transition-opacity"
+              style={{ height: `${docH}%` }}
+            />
+            <div
+              className="flex-1 bg-primary/30 rounded-t-sm group-hover:bg-primary/50 transition-colors"
+              style={{ height: `${emailH}%` }}
+            />
           </div>
         );
       })}
@@ -29,15 +47,15 @@ function VolumeChart({ series }: { series: { date: string; documents: number; em
 }
 
 // ── Trend badge ───────────────────────────────────────────────────────────────
-function Trend({ delta, suffix = '' }: { delta: number; suffix?: string }) {
+function Trend({ delta }: { delta: number }) {
   if (delta > 0) return (
     <div className="flex items-center text-xs text-emerald-600 font-medium mt-1">
-      <TrendingUp className="w-3 h-3 mr-1" />+{delta}{suffix} vs yesterday
+      <TrendingUp className="w-3 h-3 mr-1" />+{delta} vs yesterday
     </div>
   );
   if (delta < 0) return (
     <div className="flex items-center text-xs text-destructive font-medium mt-1">
-      <TrendingDown className="w-3 h-3 mr-1" />{delta}{suffix} vs yesterday
+      <TrendingDown className="w-3 h-3 mr-1" />{delta} vs yesterday
     </div>
   );
   return (
@@ -56,10 +74,40 @@ function Severity({ retries }: { retries?: number }) {
 }
 
 export default function Dashboard() {
-  const { data: stats, isLoading } = useGetDashboardStats();
+  const [days, setDays] = useState(30);
+  const { data: stats, isLoading } = useGetDashboardStats({ query: { queryKey: ['dashboard', days] }, request: { cache: 'no-store' } });
   const [, setLocation] = useLocation();
 
-  if (isLoading || !stats) {
+  // Fetch with selected day range via the query param
+  // The hook uses the same URL, so we pass days manually via a custom fetch
+  const [liveStats, setLiveStats] = useState<typeof stats | null>(null);
+  const [liveDays, setLiveDays] = useState(30);
+  const [liveLoading, setLiveLoading] = useState(false);
+
+  const fetchStats = async (d: number) => {
+    setLiveLoading(true);
+    try {
+      const token = localStorage.getItem('docscan_token');
+      const res = await fetch(`/api/admin/dashboard?days=${d}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (res.ok) setLiveStats(await res.json());
+    } finally {
+      setLiveLoading(false);
+    }
+  };
+
+  // On first load, use React Query data; on range change, use direct fetch
+  const display = liveStats ?? stats;
+  const loading = (isLoading && !liveStats) || liveLoading;
+
+  const handleRangeChange = (d: number) => {
+    setDays(d);
+    setLiveDays(d);
+    fetchStats(d);
+  };
+
+  if (loading || !display) {
     return (
       <div className="space-y-6 animate-pulse">
         <div className="h-8 w-48 bg-muted rounded mb-2" />
@@ -77,7 +125,7 @@ export default function Dashboard() {
   const quickActions = [
     { icon: Users, label: 'Manage Users', to: '/admin/users' },
     { icon: FileText, label: 'Documents', to: '/admin/documents' },
-    { icon: Send, label: 'Dispatch', to: '/upload' },
+    { icon: Mail, label: 'Recipients', to: '/admin/recipients' },
     { icon: Clock, label: 'Email Logs', to: '/admin/email-logs' },
   ];
 
@@ -102,8 +150,8 @@ export default function Dashboard() {
             <Users className="w-4 h-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-foreground">{stats.totalUsers}</div>
-            <Trend delta={stats.trends.users} />
+            <div className="text-3xl font-bold text-foreground">{display.totalUsers}</div>
+            <Trend delta={display.trends.users} />
           </CardContent>
         </Card>
 
@@ -113,32 +161,32 @@ export default function Dashboard() {
             <FileText className="w-4 h-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-foreground">{stats.documentsToday ?? 0}</div>
-            <Trend delta={stats.trends.documents} />
+            <div className="text-3xl font-bold text-foreground">{display.documentsToday ?? 0}</div>
+            <Trend delta={display.trends.documents} />
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2 pt-5">
             <CardTitle className="text-sm font-semibold text-muted-foreground">Emails Sent Today</CardTitle>
-            <Send className="w-4 h-4 text-muted-foreground" />
+            <Mail className="w-4 h-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-foreground">{stats.emailsToday ?? 0}</div>
-            <Trend delta={stats.trends.emails} />
+            <div className="text-3xl font-bold text-foreground">{display.emailsToday ?? 0}</div>
+            <Trend delta={display.trends.emails} />
           </CardContent>
         </Card>
 
-        <Card className={stats.failedEmails > 0 ? 'border-destructive/40' : ''}>
+        <Card className={display.failedEmails > 0 ? 'border-destructive/40' : ''}>
           <CardHeader className="flex flex-row items-center justify-between pb-2 pt-5">
             <CardTitle className="text-sm font-semibold text-muted-foreground">Failed Emails</CardTitle>
-            <AlertCircle className={`w-4 h-4 ${stats.failedEmails > 0 ? 'text-destructive' : 'text-muted-foreground'}`} />
+            <AlertCircle className={`w-4 h-4 ${display.failedEmails > 0 ? 'text-destructive' : 'text-muted-foreground'}`} />
           </CardHeader>
           <CardContent>
-            <div className={`text-3xl font-bold ${stats.failedEmails > 0 ? 'text-destructive' : 'text-foreground'}`}>
-              {stats.failedEmails}
+            <div className={`text-3xl font-bold ${display.failedEmails > 0 ? 'text-destructive' : 'text-foreground'}`}>
+              {display.failedEmails}
             </div>
-            {stats.failedEmails > 0 ? (
+            {display.failedEmails > 0 ? (
               <button
                 onClick={() => setLocation('/admin/email-logs')}
                 className="flex items-center text-xs text-destructive font-medium mt-1 hover:underline"
@@ -157,23 +205,52 @@ export default function Dashboard() {
       {/* Chart + sidebar */}
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2 space-y-6">
-          {/* Volume Trend chart — real data */}
-          <Card className="h-[280px] flex flex-col">
-            <CardHeader className="pb-0 flex flex-row items-center justify-between">
-              <CardTitle className="text-base font-semibold">30-Day Volume</CardTitle>
-              <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                <span className="flex items-center gap-1"><span className="inline-block w-2.5 h-2.5 rounded-sm bg-primary opacity-80" />Documents</span>
-                <span className="flex items-center gap-1"><span className="inline-block w-2.5 h-2.5 rounded-sm bg-primary/30" />Emails</span>
+
+          {/* Volume chart with date-range picker */}
+          <Card className="flex flex-col" style={{ height: 300 }}>
+            <CardHeader className="pb-0 flex flex-row items-center justify-between shrink-0">
+              <div>
+                <CardTitle className="text-base font-semibold">Volume Trend</CardTitle>
+                <p className="text-xs text-muted-foreground mt-0.5">Documents &amp; emails over the last {liveDays || 30} days</p>
+              </div>
+              <div className="flex items-center gap-1">
+                {RANGE_OPTIONS.map(({ label, days: d }) => (
+                  <button
+                    key={d}
+                    onClick={() => handleRangeChange(d)}
+                    className={`text-xs font-semibold px-2.5 py-1 rounded-md transition-colors ${
+                      (liveDays || 30) === d
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
               </div>
             </CardHeader>
-            <CardContent className="flex-1 pb-4 pt-4">
-              {stats.volumeSeries && stats.volumeSeries.length > 0 ? (
-                <VolumeChart series={stats.volumeSeries} />
-              ) : (
-                <div className="h-full flex items-center justify-center text-sm text-muted-foreground">
-                  No activity in the last 30 days.
-                </div>
-              )}
+            <CardContent className="flex-1 min-h-0 pb-4 pt-3 flex flex-col gap-2">
+              <div className="flex items-center gap-4 text-xs text-muted-foreground shrink-0">
+                <span className="flex items-center gap-1.5">
+                  <span className="inline-block w-2.5 h-2.5 rounded-sm bg-primary opacity-80" />Documents
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="inline-block w-2.5 h-2.5 rounded-sm bg-primary/30" />Emails sent
+                </span>
+              </div>
+              <div className="flex-1 min-h-0">
+                {liveLoading ? (
+                  <div className="h-full flex items-center justify-center text-sm text-muted-foreground animate-pulse">
+                    Loading…
+                  </div>
+                ) : display.volumeSeries && display.volumeSeries.length > 0 ? (
+                  <VolumeChart series={display.volumeSeries} />
+                ) : (
+                  <div className="h-full flex items-center justify-center text-sm text-muted-foreground">
+                    No activity in the selected period.
+                  </div>
+                )}
+              </div>
             </CardContent>
           </Card>
 
@@ -192,10 +269,10 @@ export default function Dashboard() {
             </CardHeader>
             <CardContent className="p-0">
               <div className="divide-y divide-border">
-                {stats.recentActivity.length === 0 ? (
+                {display.recentActivity.length === 0 ? (
                   <div className="p-6 text-center text-muted-foreground text-sm">No recent activity.</div>
                 ) : (
-                  stats.recentActivity.slice(0, 6).map((log) => (
+                  display.recentActivity.slice(0, 6).map((log) => (
                     <div key={log.id} className="px-4 py-3 hover:bg-muted/30 transition-colors flex items-center justify-between">
                       <div className="flex flex-col gap-0.5">
                         <div className="flex items-center gap-2">
@@ -204,7 +281,9 @@ export default function Dashboard() {
                             {log.action.replace(/_/g, ' ')}
                           </span>
                         </div>
-                        {log.details && <span className="text-xs text-muted-foreground truncate max-w-xs">{log.details}</span>}
+                        {log.details && (
+                          <span className="text-xs text-muted-foreground truncate max-w-xs">{log.details}</span>
+                        )}
                       </div>
                       <div className="text-xs text-muted-foreground font-mono shrink-0 ml-4">
                         {format(new Date(log.createdAt), 'HH:mm')}
@@ -239,25 +318,25 @@ export default function Dashboard() {
           </Card>
 
           {/* Active Alerts — real failed emails */}
-          <Card className={stats.recentFailures.length > 0 ? 'border-destructive/20' : ''}>
-            <CardHeader className={`border-b ${stats.recentFailures.length > 0 ? 'bg-destructive/5 border-destructive/10' : 'border-border'}`}>
-              <CardTitle className={`text-base font-semibold flex items-center gap-2 ${stats.recentFailures.length > 0 ? 'text-destructive' : 'text-foreground'}`}>
+          <Card className={display.recentFailures.length > 0 ? 'border-destructive/20' : ''}>
+            <CardHeader className={`border-b ${display.recentFailures.length > 0 ? 'bg-destructive/5 border-destructive/10' : 'border-border'}`}>
+              <CardTitle className={`text-base font-semibold flex items-center gap-2 ${display.recentFailures.length > 0 ? 'text-destructive' : 'text-foreground'}`}>
                 <AlertCircle className="w-4 h-4" />Active Alerts
               </CardTitle>
             </CardHeader>
             <CardContent className="p-0">
-              {stats.recentFailures.length === 0 ? (
+              {display.recentFailures.length === 0 ? (
                 <div className="p-6 flex flex-col items-center gap-2 text-center text-muted-foreground text-sm">
                   <CheckCircle className="w-8 h-8 text-emerald-500" />
                   <span>No delivery failures.</span>
                 </div>
               ) : (
                 <>
-                  {stats.recentFailures.map((f) => (
+                  {display.recentFailures.map((f) => (
                     <div key={f.id} className="p-4 border-b border-border hover:bg-muted/30 transition-colors last:border-0">
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex flex-col gap-0.5 min-w-0">
-                          <span className="text-sm font-semibold truncate">Delivery Failure</span>
+                          <span className="text-sm font-semibold">Delivery Failure</span>
                           <span className="text-xs text-muted-foreground truncate" title={f.recipientEmail}>
                             → {f.recipientEmail}
                           </span>
