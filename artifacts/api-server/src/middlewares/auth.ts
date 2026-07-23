@@ -22,13 +22,20 @@ declare global {
 }
 
 export function requireAuth(req: Request, res: Response, next: NextFunction): void {
+  // Accept token from Authorization header OR ?token= query param (needed for SSE / EventSource)
   const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+  const queryToken = typeof req.query["token"] === "string" ? req.query["token"] : null;
+
+  const rawToken = authHeader?.startsWith("Bearer ")
+    ? authHeader.slice(7)
+    : queryToken;
+
+  if (!rawToken) {
     res.status(401).json({ error: "Unauthorized" });
     return;
   }
 
-  const token = authHeader.slice(7);
+  const token = rawToken;
   try {
     const payload = jwt.verify(token, JWT_SECRET) as AuthUser;
     req.user = payload;

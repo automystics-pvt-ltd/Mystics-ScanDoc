@@ -7,8 +7,8 @@ import * as z from 'zod';
 import {
   Save, Server, Loader2, Mail, CheckCircle2, XCircle,
   SlidersHorizontal, ShieldAlert, AlertTriangle, ScanLine,
-  Camera, FileType, MessageSquare, Phone, Trash2, Clock,
-  Printer, Zap, ChevronDown, Eye, EyeOff, RefreshCw,
+  Camera, FileType, MessageSquare, Phone, Clock,
+  Printer, Zap, Eye, EyeOff, RefreshCw, Link, Copy, RotateCcw, Wifi,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -134,6 +134,118 @@ function SelectButtons({ options, value, onChange }: {
         </button>
       ))}
     </div>
+  );
+}
+
+// ── Scan-to-URL card ─────────────────────────────────────────────────────────
+
+function ScanToUrlCard() {
+  const [apiKey, setApiKey] = useState<string | null>(null);
+  const [showKey, setShowKey] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [regenerating, setRegenerating] = useState(false);
+  const { toast } = useToast();
+
+  const endpointUrl = `${window.location.origin}${import.meta.env.BASE_URL}api/scanner/receive`;
+
+  const fetchKey = async () => {
+    try {
+      const token = localStorage.getItem('docscan_token');
+      const res = await fetch(`${import.meta.env.BASE_URL}api/admin/scanner/key`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) { const d = await res.json(); setApiKey(d.scannerApiKey); }
+    } catch {}
+    setLoading(false);
+  };
+
+  useEffect(() => { fetchKey(); }, []);
+
+  const copy = (text: string, label: string) => {
+    navigator.clipboard.writeText(text).then(() =>
+      toast({ title: `${label} copied`, description: 'Paste it into your scanner configuration.' })
+    );
+  };
+
+  const regen = async () => {
+    setRegenerating(true);
+    try {
+      const token = localStorage.getItem('docscan_token');
+      const res = await fetch(`${import.meta.env.BASE_URL}api/admin/scanner/regen-key`, {
+        method: 'POST', headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) { const d = await res.json(); setApiKey(d.scannerApiKey); toast({ title: 'Key regenerated', description: 'Update your scanner with the new key.' }); }
+    } catch {}
+    setRegenerating(false);
+  };
+
+  return (
+    <Card className="shadow-sm border-primary/20">
+      <CardHeader className="bg-primary/5 border-b border-primary/10 pb-4 pt-5">
+        <CardTitle className="text-base font-semibold flex items-center gap-2">
+          <Wifi className="w-4 h-4 text-primary" /> Scan-to-URL Integration
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="pt-6 space-y-5">
+        <p className="text-sm text-muted-foreground">
+          Configure your physical scanner to POST scanned documents directly to this endpoint.
+          Supported by Fujitsu, Canon, Ricoh, Kyocera, HP, and most enterprise scanners via <strong>Scan to URL</strong> or <strong>Scan to HTTP</strong>.
+        </p>
+
+        {/* Endpoint URL */}
+        <div>
+          <p className="text-xs uppercase font-semibold text-muted-foreground mb-2 flex items-center gap-1.5">
+            <Link className="w-3.5 h-3.5" /> Endpoint URL
+          </p>
+          <div className="flex gap-2">
+            <code className="flex-1 bg-muted border border-border rounded-lg px-3 py-2 text-sm font-mono text-foreground truncate">
+              {endpointUrl}
+            </code>
+            <Button type="button" variant="outline" size="icon" onClick={() => copy(endpointUrl, 'Endpoint URL')}>
+              <Copy className="w-4 h-4" />
+            </Button>
+          </div>
+        </div>
+
+        {/* API Key */}
+        <div>
+          <p className="text-xs uppercase font-semibold text-muted-foreground mb-2 flex items-center gap-1.5">
+            <Eye className="w-3.5 h-3.5" /> Scanner API Key
+          </p>
+          {loading ? (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="w-4 h-4 animate-spin" /> Loading…</div>
+          ) : (
+            <div className="flex gap-2">
+              <code className="flex-1 bg-muted border border-border rounded-lg px-3 py-2 text-sm font-mono text-foreground truncate">
+                {showKey ? apiKey : '•'.repeat(Math.min(apiKey?.length ?? 0, 40))}
+              </code>
+              <Button type="button" variant="outline" size="icon" onClick={() => setShowKey(s => !s)}>
+                {showKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </Button>
+              <Button type="button" variant="outline" size="icon" onClick={() => copy(apiKey ?? '', 'API Key')}>
+                <Copy className="w-4 h-4" />
+              </Button>
+              <Button type="button" variant="outline" size="icon" onClick={regen} disabled={regenerating}>
+                <RotateCcw className={cn('w-4 h-4', regenerating && 'animate-spin')} />
+              </Button>
+            </div>
+          )}
+          <p className="text-xs text-muted-foreground mt-1.5">Use this key as: HTTP header <code className="bg-muted px-1 rounded">X-Scanner-Key: &lt;key&gt;</code> or query param <code className="bg-muted px-1 rounded">?key=&lt;key&gt;</code></p>
+        </div>
+
+        {/* Setup guide */}
+        <div className="bg-muted/40 rounded-lg p-4 border border-border space-y-2">
+          <p className="text-xs uppercase font-semibold text-muted-foreground">Quick Setup Guide</p>
+          <ol className="text-sm text-muted-foreground space-y-1.5 list-decimal pl-4">
+            <li>On your scanner, find <strong>Scan to URL</strong>, <strong>Scan to HTTP</strong>, or <strong>Network Folder/FTP</strong> settings.</li>
+            <li>Set the destination URL to the endpoint above.</li>
+            <li>Add a custom HTTP header <code className="bg-muted px-1 rounded font-mono text-xs">X-Scanner-Key</code> with the API key value.</li>
+            <li>Set output format to <strong>PDF</strong>, <strong>JPEG</strong>, or <strong>PNG</strong>.</li>
+            <li>Scan a document — it will appear on the <strong>Scan & Dispatch</strong> page instantly.</li>
+          </ol>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -744,6 +856,9 @@ export default function Settings() {
 
             {/* ── SCANNER TAB ──────────────────────────────────────────── */}
             <TabsContent value="scanner" className="space-y-6 mt-0">
+
+              {/* Scan-to-URL integration */}
+              <ScanToUrlCard />
 
               {/* Scanner identity */}
               <Card className="shadow-sm">

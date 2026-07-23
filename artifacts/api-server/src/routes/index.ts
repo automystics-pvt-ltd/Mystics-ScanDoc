@@ -9,12 +9,14 @@ import adminRecipientsRouter from "./admin-recipients";
 import adminSettingsRouter from "./admin-settings";
 import adminDashboardRouter from "./admin-dashboard";
 import adminAuditLogsRouter from "./admin-audit-logs";
+import scannerRouter from "./scanner";
 
 const router: IRouter = Router();
 
 router.use(healthRouter);
 router.use(authRouter);
 router.use(documentsRouter);
+router.use(scannerRouter);
 router.use(adminUsersRouter);
 router.use(adminDocumentsRouter);
 router.use(adminEmailLogsRouter);

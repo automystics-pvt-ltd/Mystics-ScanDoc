@@ -54,6 +54,9 @@ export const settingsTable = pgTable("settings", {
   scannerDuplex: boolean("scanner_duplex").default(false),
   scannerBrightness: integer("scanner_brightness").default(0),     // -100 to 100
   scannerContrast: integer("scanner_contrast").default(0),         // -100 to 100
+
+  // ── Scan-to-URL integration ───────────────────────────────────────────────
+  scannerApiKey: text("scanner_api_key"),                          // auto-generated on first use
 });
 
 export const insertSettingsSchema = createInsertSchema(settingsTable).omit({ id: true });
