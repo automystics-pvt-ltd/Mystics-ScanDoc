@@ -4,7 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Save, Server, Loader2, Mail, CheckCircle2, XCircle, SlidersHorizontal, ShieldAlert, AlertTriangle } from 'lucide-react';
+import { Save, Server, Loader2, Mail, CheckCircle2, XCircle, SlidersHorizontal, ShieldAlert, AlertTriangle, ScanLine, Camera, FileType } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
@@ -173,6 +173,78 @@ export default function Settings() {
                   <FormMessage />
                 </FormItem>
               )} />
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-sm">
+            <CardHeader className="bg-muted/30 border-b border-border pb-4 pt-5">
+              <CardTitle className="text-base font-semibold flex items-center gap-2">
+                <ScanLine className="w-4 h-4 text-muted-foreground" /> Scan Configuration
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-6 space-y-6">
+              {/* Scan modes */}
+              <div>
+                <p className="text-xs uppercase font-semibold text-muted-foreground mb-3">Available Scan Modes</p>
+                <div className="grid sm:grid-cols-2 gap-3">
+                  <div className="flex items-center gap-3 p-3 rounded-lg border border-border bg-background">
+                    <div className="w-8 h-8 rounded bg-primary/10 flex items-center justify-center shrink-0">
+                      <Save className="w-4 h-4 text-primary" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-foreground">File Upload</p>
+                      <p className="text-xs text-muted-foreground">PDF, JPG, PNG via drag-and-drop</p>
+                    </div>
+                    <Badge className="ml-auto bg-green-100 text-green-800 border-green-200 hover:bg-green-100 text-[10px]">Active</Badge>
+                  </div>
+                  <div className="flex items-center gap-3 p-3 rounded-lg border border-border bg-background">
+                    <div className="w-8 h-8 rounded bg-primary/10 flex items-center justify-center shrink-0">
+                      <Camera className="w-4 h-4 text-primary" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-foreground">Camera Scan</p>
+                      <p className="text-xs text-muted-foreground">Live capture via device camera</p>
+                    </div>
+                    <Badge className="ml-auto bg-green-100 text-green-800 border-green-200 hover:bg-green-100 text-[10px]">Active</Badge>
+                  </div>
+                </div>
+              </div>
+
+              {/* Allowed file types */}
+              <div>
+                <p className="text-xs uppercase font-semibold text-muted-foreground mb-3 flex items-center gap-1.5">
+                  <FileType className="w-3.5 h-3.5" /> Accepted File Types
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {(settings?.allowedFileTypes ?? 'pdf,jpg,jpeg,png').split(',').map((ext) => (
+                    <span key={ext} className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-bold uppercase border border-primary/20">
+                      .{ext.trim()}
+                    </span>
+                  ))}
+                </div>
+                <p className="text-xs text-muted-foreground mt-2">
+                  Configured in the database. Contact your system administrator to change accepted types.
+                </p>
+              </div>
+
+              {/* Current limits summary */}
+              <div className="bg-muted/40 rounded-lg p-4 border border-border">
+                <p className="text-xs uppercase font-semibold text-muted-foreground mb-3">Active Limits Summary</p>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm">
+                  <div>
+                    <p className="text-muted-foreground text-xs">Max file size</p>
+                    <p className="font-bold text-foreground font-mono">{settings?.maxFileSizeMb ?? 10} MB</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground text-xs">Max recipients</p>
+                    <p className="font-bold text-foreground font-mono">{settings?.maxRecipients ?? 5}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground text-xs">Camera scan</p>
+                    <p className="font-bold text-green-600 font-mono">Enabled</p>
+                  </div>
+                </div>
+              </div>
             </CardContent>
           </Card>
 
