@@ -146,17 +146,30 @@ export function Layout({ children }: { children: React.ReactNode }) {
       {/* Logo */}
       <div className={cn(
         'h-16 flex items-center border-b border-sidebar-border/50 shrink-0 transition-all duration-300',
-        collapsed ? 'justify-center px-0' : 'px-6 gap-3',
+        collapsed ? 'justify-between px-3' : 'px-4 gap-3',
       )}>
-        <div className="bg-primary p-1.5 rounded flex items-center justify-center shrink-0">
-          <ScanText className="w-5 h-5 text-primary-foreground" />
-        </div>
-        {!collapsed && (
-          <div className="flex flex-col overflow-hidden">
-            <span className="font-bold text-lg text-sidebar-foreground leading-none whitespace-nowrap">DocScan</span>
-            <span className="text-[9px] font-semibold text-sidebar-foreground/60 tracking-[0.2em]">ENTERPRISE</span>
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="bg-primary p-1.5 rounded flex items-center justify-center shrink-0">
+            <ScanText className="w-5 h-5 text-primary-foreground" />
           </div>
-        )}
+          {!collapsed && (
+            <div className="flex flex-col overflow-hidden">
+              <span className="font-bold text-lg text-sidebar-foreground leading-none whitespace-nowrap">DocScan</span>
+              <span className="text-[9px] font-semibold text-sidebar-foreground/60 tracking-[0.2em]">ENTERPRISE</span>
+            </div>
+          )}
+        </div>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              onClick={toggleCollapsed}
+              className="text-sidebar-foreground/40 hover:text-sidebar-foreground hover:bg-sidebar-accent p-1.5 rounded transition-colors shrink-0"
+            >
+              {collapsed ? <PanelLeftOpen className="w-4 h-4" /> : <PanelLeftClose className="w-4 h-4" />}
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="right">{collapsed ? 'Expand sidebar' : 'Collapse sidebar'}</TooltipContent>
+        </Tooltip>
       </div>
 
       {/* Nav links */}
@@ -255,24 +268,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
           </DropdownMenu>
         )}
 
-        {/* Collapse toggle */}
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              onClick={toggleCollapsed}
-              className={cn(
-                'mt-2 w-full flex items-center rounded text-sidebar-foreground/40 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors text-xs font-medium',
-                collapsed ? 'justify-center p-2' : 'gap-2 px-2 py-1.5',
-              )}
-            >
-              {collapsed
-                ? <PanelLeftOpen className="w-4 h-4" />
-                : <><PanelLeftClose className="w-4 h-4" /><span>Collapse</span></>
-              }
-            </button>
-          </TooltipTrigger>
-          {collapsed && <TooltipContent side="right">Expand sidebar</TooltipContent>}
-        </Tooltip>
       </div>
     </TooltipProvider>
   );
