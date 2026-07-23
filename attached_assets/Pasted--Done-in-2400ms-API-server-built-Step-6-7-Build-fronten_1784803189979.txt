@@ -1,0 +1,45 @@
+⚡ Done in 2400ms
+✔  API server built
+▶  Step 6/7 — Build frontend (Vite)
+
+> @workspace/docscan@0.0.0 build /home/automystics-docscan/htdocs/docscan.automystics.tech/repo/artifacts/docscan
+> vite build --config vite.config.ts
+
+vite v7.3.6 building client environment for production...
+src/components/ui/tooltip.tsx (2:0): Error when using sourcemap for reporting an error: Can't resolve original location of error.
+src/components/ui/select.tsx (2:0): Error when using sourcemap for reporting an error: Can't resolve original location of error.
+src/components/ui/sheet.tsx (2:0): Error when using sourcemap for reporting an error: Can't resolve original location of error.
+src/components/ui/dropdown-menu.tsx (2:0): Error when using sourcemap for reporting an error: Can't resolve original location of error.
+src/components/ui/label.tsx (2:0): Error when using sourcemap for reporting an error: Can't resolve original location of error.
+✓ 2565 modules transformed.
+dist/public/index.html                   1.58 kB │ gzip:   0.57 kB
+dist/public/assets/index-BcLxC7ZG.css  119.48 kB │ gzip:  19.40 kB
+dist/public/assets/index-B7r966pZ.js   784.38 kB │ gzip: 234.84 kB
+
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 20.18s
+✔  Frontend built → artifacts/docscan/dist/public/
+file has vanished: "/home/automystics-docscan/htdocs/docscan.automystics.tech/repo/artifacts/docscan/dist/public/favicon.svg"
+file has vanished: "/home/automystics-docscan/htdocs/docscan.automystics.tech/repo/artifacts/docscan/dist/public/index.html"
+file has vanished: "/home/automystics-docscan/htdocs/docscan.automystics.tech/repo/artifacts/docscan/dist/public/robots.txt"
+file has vanished: "/home/automystics-docscan/htdocs/docscan.automystics.tech/repo/artifacts/docscan/dist/public/assets/index-B7r966pZ.js"
+file has vanished: "/home/automystics-docscan/htdocs/docscan.automystics.tech/repo/artifacts/docscan/dist/public/assets/index-BcLxC7ZG.css"
+rsync warning: some files vanished before they could be transferred (code 24) at main.c(1356) [sender=3.2.7]
+root@srv1609330:/home/automystics-docscan/htdocs/docscan.automystics.tech/repo# bash deploy.sh
+shell-init: error retrieving current directory: getcwd: cannot access parent directories: No such file or directory
+bash: deploy.sh: No such file or directory
+root@srv1609330:/home/automystics-docscan/htdocs/docscan.automystics.tech/repo# cd /home/automystics-docscan/htdocs/docscan.automystics.tech/repo
+git pull origin main
+bash deploy.sh
+-bash: cd: /home/automystics-docscan/htdocs/docscan.automystics.tech/repo: No such file or directory
+fatal: Unable to read current working directory: No such file or directory
+shell-init: error retrieving current directory: getcwd: cannot access parent directories: No such file or directory
+bash: deploy.sh: No such file or directory
+root@srv1609330:/home/automystics-docscan/htdocs/docscan.automystics.tech/repo# cd /home/automystics-docscan/htdocs/docscan.automystics.tech/repo && deploy.sh
+-bash: cd: /home/automystics-docscan/htdocs/docscan.automystics.tech/repo: No such file or directory
+root@srv1609330:/home/automystics-docscan/htdocs/docscan.automystics.tech/repo# cd /home/automystics-docscan/htdocs/docscan.automystics.tech/repo && bash deploy.sh
+-bash: cd: /home/automystics-docscan/htdocs/docscan.automystics.tech/repo: No such file or directory
+root@srv1609330:/home/automystics-docscan/htdocs/docscan.automystics.tech/repo# 

@@ -7,7 +7,7 @@ module.exports = {
     {
       name: "docscan-api",
       script: "./artifacts/api-server/dist/index.mjs",
-      cwd: "/home/automystics-docscan/repo",   // ← path where you cloned the repo
+      cwd: "/home/automystics-docscan/app",   // ← repo cloned here (outside htdocs)
       instances: 1,
       exec_mode: "fork",
       autorestart: true,
@@ -15,7 +15,7 @@ module.exports = {
       max_memory_restart: "512M",
 
       // Load .env from the repo root
-      env_file: "/home/automystics-docscan/repo/.env",
+      env_file: "/home/automystics-docscan/app/.env",
 
       env: {
         NODE_ENV: "production",

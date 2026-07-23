@@ -22,6 +22,11 @@ cd "$SCRIPT_DIR"
 
 WEB_ROOT="/home/automystics-docscan/htdocs/docscan.automystics.tech"
 
+# Safety: repo must NOT be inside the web root — rsync --delete would wipe it.
+if [[ "$SCRIPT_DIR" == "$WEB_ROOT"* ]]; then
+  fail "Repo is inside the web root ($WEB_ROOT). Re-clone to /home/automystics-docscan/app and run from there."
+fi
+
 echo -e "${CYAN}═══════════════════════════════════════════${NC}"
 echo -e "${CYAN}  Deploying DocScan → $APP              ${NC}"
 echo -e "${CYAN}═══════════════════════════════════════════${NC}"
