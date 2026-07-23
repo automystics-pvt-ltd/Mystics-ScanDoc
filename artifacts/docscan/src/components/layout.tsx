@@ -144,30 +144,46 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const DesktopNav = () => (
     <TooltipProvider delayDuration={0}>
       {/* Logo */}
-      <div className="h-16 flex items-center justify-between px-3 border-b border-sidebar-border/50 shrink-0">
-        <div className="flex items-center gap-3 min-w-0">
-          <div className="bg-primary p-1.5 rounded flex items-center justify-center shrink-0">
-            <ScanText className="w-5 h-5 text-primary-foreground" />
-          </div>
-          {!collapsed && (
+      {collapsed ? (
+        /* Collapsed header — just the toggle button, centred */
+        <div className="h-16 flex items-center justify-center border-b border-sidebar-border/50 shrink-0">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                onClick={toggleCollapsed}
+                className="text-sidebar-foreground/40 hover:text-sidebar-foreground hover:bg-sidebar-accent p-1.5 rounded transition-colors"
+              >
+                <PanelLeftOpen className="w-4 h-4" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="right">Expand sidebar</TooltipContent>
+          </Tooltip>
+        </div>
+      ) : (
+        /* Expanded header — logo on the left, toggle on the right */
+        <div className="h-16 flex items-center justify-between px-4 border-b border-sidebar-border/50 shrink-0">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="bg-primary p-1.5 rounded flex items-center justify-center shrink-0">
+              <ScanText className="w-5 h-5 text-primary-foreground" />
+            </div>
             <div className="flex flex-col overflow-hidden">
               <span className="font-bold text-lg text-sidebar-foreground leading-none whitespace-nowrap">DocScan</span>
               <span className="text-[9px] font-semibold text-sidebar-foreground/60 tracking-[0.2em]">ENTERPRISE</span>
             </div>
-          )}
+          </div>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                onClick={toggleCollapsed}
+                className="text-sidebar-foreground/40 hover:text-sidebar-foreground hover:bg-sidebar-accent p-1.5 rounded transition-colors shrink-0"
+              >
+                <PanelLeftClose className="w-4 h-4" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="right">Collapse sidebar</TooltipContent>
+          </Tooltip>
         </div>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              onClick={toggleCollapsed}
-              className="text-sidebar-foreground/40 hover:text-sidebar-foreground hover:bg-sidebar-accent p-1.5 rounded transition-colors shrink-0 ml-1"
-            >
-              {collapsed ? <PanelLeftOpen className="w-4 h-4" /> : <PanelLeftClose className="w-4 h-4" />}
-            </button>
-          </TooltipTrigger>
-          <TooltipContent side="right">{collapsed ? 'Expand sidebar' : 'Collapse sidebar'}</TooltipContent>
-        </Tooltip>
-      </div>
+      )}
 
       {/* Nav links */}
       <div className={cn('flex-1 py-6 space-y-8 overflow-y-auto custom-scrollbar transition-all duration-300', collapsed ? 'px-2' : 'px-4')}>
