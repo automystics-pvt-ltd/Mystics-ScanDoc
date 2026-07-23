@@ -7,19 +7,16 @@ module.exports = {
     {
       name: "docscan-api",
       script: "./artifacts/api-server/dist/index.mjs",
-      cwd: "/home/automystics-docscan/app",   // ← repo cloned here (outside htdocs)
+      cwd: "/home/automystics-docscan/app",
+      node_args: "--env-file /home/automystics-docscan/app/.env",
       instances: 1,
       exec_mode: "fork",
       autorestart: true,
       watch: false,
       max_memory_restart: "512M",
 
-      // Load .env from the repo root
-      env_file: "/home/automystics-docscan/app/.env",
-
       env: {
         NODE_ENV: "production",
-        PORT: "3001",
       },
 
       // Logs

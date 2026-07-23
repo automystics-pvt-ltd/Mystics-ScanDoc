@@ -1,0 +1,15 @@
+/home/automystics-docscan/logs/api-out.log last 10 lines:
+31|docscan | (node:net:2065:12)\n    at Server.listen (node:net:2170:7)\n    at app2.listen (/home/automystics-docscan/app/node_modules/.pnpm/express@5.2.1/node_modules/express/lib/application.js:605:24)\n    at <anonymous> (/home/automystics-docscan/app/artifacts/api-server/src/index.ts:20:5)\n    at ModuleJob.run (node:internal/modules/esm/module_job:439:25)\n    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)\n    at async node:internal/modules/esm/loader:633:26","code":"EADDRINUSE","errno":-98,"syscall":"listen","address":"::","port":3001},"msg":"Error listening on port"}
+31|docscan | 2026-07-23 11:22:29 +00:00: {"level":50,"time":1784805749050,"pid":196764,"hostname":"srv1609330","err":{"type":"Error","message":"listen EADDRINUSE: address already in use :::3001","stack":"Error: listen EADDRINUSE: address already in use :::3001\n    at Server.setupListenHandle [as _listen2] (node:net:2008:16)\n    at listenInCluster (node:net:2065:12)\n    at Server.listen (node:net:2170:7)\n    at app2.listen (/home/automystics-docscan/app/node_modules/.pnpm/express@5.2.1/node_modules/express/lib/application.js:605:24)\n    at <anonymous> (/home/automystics-docscan/app/artifacts/api-server/src/index.ts:20:5)\n    at ModuleJob.run (node:internal/modules/esm/module_job:439:25)\n    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)\n    at async node:internal/modules/esm/loader:633:26","code":"EADDRINUSE","errno":-98,"syscall":"listen","address":"::","port":3001},"msg":"Error listening on port"}
+31|docscan | 2026-07-23 11:22:32 +00:00: {"level":30,"time":1784805752736,"pid":196955,"hostname":"srv1609330","port":3001,"msg":"Server listening"}
+31|docscan | 2026-07-23 11:22:32 +00:00: {"level":30,"time":1784805752739,"pid":196955,"hostname":"srv1609330","pollIntervalMs":30000,"msg":"Email retry worker started"}
+31|docscan | 2026-07-23 11:22:32 +00:00: {"level":30,"time":1784805752739,"pid":196955,"hostname":"srv1609330","pollIntervalMs":21600000,"msg":"Document retention worker started"}
+
+/home/automystics-docscan/logs/api-err.log last 10 lines:
+31|docscan | 2026-07-23 11:29:40 +00:00: Error: DATABASE_URL must be set. Did you forget to provision a database?
+31|docscan | 2026-07-23 11:29:40 +00:00:     at <anonymous> (/home/automystics-docscan/app/lib/db/src/index.ts:8:9)
+31|docscan | 2026-07-23 11:29:40 +00:00:     at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+31|docscan | 2026-07-23 11:29:40 +00:00:     at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+31|docscan | 2026-07-23 11:29:40 +00:00:     at async node:internal/modules/esm/loader:633:26
+
+root@srv1609330:/home/automystics-docscan/app# 
