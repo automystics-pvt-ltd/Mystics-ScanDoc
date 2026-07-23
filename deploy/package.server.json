@@ -1,0 +1,9 @@
+{
+  "name": "docscan-api-server",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Production dependencies for the DocScan API server bundle",
+  "dependencies": {
+    "nodemailer": "^9.0.3"
+  }
+}
