@@ -23,6 +23,8 @@ import {
   KeyRound,
   ChevronUp,
   Loader2,
+  PanelLeftClose,
+  PanelLeftOpen,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -51,6 +53,12 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { motion } from 'framer-motion';
 
 const changePasswordSchema = z.object({
@@ -70,6 +78,19 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const changePasswordMutation = useChangePassword();
 
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
+
+  // ── Collapsible sidebar ──────────────────────────────────────────────────
+  const [collapsed, setCollapsed] = useState(() => {
+    try { return localStorage.getItem('sidebar_collapsed') === 'true'; } catch { return false; }
+  });
+
+  const toggleCollapsed = () => {
+    setCollapsed((prev) => {
+      const next = !prev;
+      try { localStorage.setItem('sidebar_collapsed', String(next)); } catch {}
+      return next;
+    });
+  };
 
   const form = useForm<z.infer<typeof changePasswordSchema>>({
     resolver: zodResolver(changePasswordSchema),
@@ -118,21 +139,154 @@ export function Layout({ children }: { children: React.ReactNode }) {
   ];
 
   const navItems = user?.role === 'admin' ? adminNav : userNav;
-  const currentNavItem = navItems.find(i => location === i.href || location.startsWith(`${i.href}/`));
-  const breadcrumbSection = user?.role === 'admin' ? 'Admin' : 'Workspace';
-  const breadcrumbPage = currentNavItem?.label || 'Overview';
 
-  const NavContent = () => (
-    <>
-      <div className="h-16 flex items-center px-6 border-b border-sidebar-border/50">
-        <div className="flex items-center gap-3">
-          <div className="bg-primary p-1.5 rounded flex items-center justify-center">
-            <ScanText className="w-5 h-5 text-primary-foreground" />
-          </div>
-          <div className="flex flex-col">
-            <span className="font-bold text-lg text-sidebar-foreground leading-none">DocScan</span>
+  // ── Nav content (desktop sidebar) ───────────────────────────────────────
+  const DesktopNav = () => (
+    <TooltipProvider delayDuration={0}>
+      {/* Logo */}
+      <div className={cn(
+        'h-16 flex items-center border-b border-sidebar-border/50 shrink-0 transition-all duration-300',
+        collapsed ? 'justify-center px-0' : 'px-6 gap-3',
+      )}>
+        <div className="bg-primary p-1.5 rounded flex items-center justify-center shrink-0">
+          <ScanText className="w-5 h-5 text-primary-foreground" />
+        </div>
+        {!collapsed && (
+          <div className="flex flex-col overflow-hidden">
+            <span className="font-bold text-lg text-sidebar-foreground leading-none whitespace-nowrap">DocScan</span>
             <span className="text-[9px] font-semibold text-sidebar-foreground/60 tracking-[0.2em]">ENTERPRISE</span>
           </div>
+        )}
+      </div>
+
+      {/* Nav links */}
+      <div className={cn('flex-1 py-6 space-y-8 overflow-y-auto custom-scrollbar transition-all duration-300', collapsed ? 'px-2' : 'px-4')}>
+        <div className="space-y-1">
+          {!collapsed && (
+            <div className="px-2 pb-2 text-xs font-semibold text-sidebar-foreground/40 uppercase tracking-widest">
+              {user?.role === 'admin' ? 'Administration' : 'Workspace'}
+            </div>
+          )}
+          {navItems.map((item) => {
+            const Icon = item.icon;
+            const isActive = location === item.href || location.startsWith(`${item.href}/`);
+            const link = (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={cn(
+                  'group flex items-center gap-3 rounded text-sm font-medium transition-colors relative',
+                  collapsed ? 'justify-center p-2.5' : 'px-3 py-2',
+                  isActive
+                    ? 'text-sidebar-foreground bg-sidebar-accent'
+                    : 'text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground'
+                )}
+              >
+                {isActive && (
+                  <motion.div
+                    layoutId="activeNavIndicator"
+                    className="absolute left-0 top-0 bottom-0 w-1 bg-primary rounded-r"
+                  />
+                )}
+                <Icon className={cn('w-4 h-4 shrink-0', isActive ? 'text-primary' : 'group-hover:text-sidebar-foreground')} />
+                {!collapsed && <span>{item.label}</span>}
+              </Link>
+            );
+
+            return collapsed ? (
+              <Tooltip key={item.href}>
+                <TooltipTrigger asChild>{link}</TooltipTrigger>
+                <TooltipContent side="right" className="font-medium">{item.label}</TooltipContent>
+              </Tooltip>
+            ) : link;
+          })}
+        </div>
+      </div>
+
+      {/* User section */}
+      <div className={cn('border-t border-sidebar-border/50 transition-all duration-300', collapsed ? 'p-2' : 'p-4')}>
+        {collapsed ? (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button className="w-full flex justify-center p-1 rounded hover:bg-sidebar-accent transition-colors">
+                    <div className="w-9 h-9 rounded-full bg-sidebar-accent border border-sidebar-border flex items-center justify-center text-sidebar-foreground font-semibold">
+                      {user?.name?.charAt(0).toUpperCase() || 'U'}
+                    </div>
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent side="right" align="end" className="w-52">
+                  <DropdownMenuItem className="gap-2 cursor-pointer" onSelect={() => { form.reset(); setChangePasswordOpen(true); }}>
+                    <KeyRound className="w-4 h-4" /> Change Password
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem className="gap-2 cursor-pointer text-destructive focus:text-destructive" onSelect={handleLogout}>
+                    <LogOut className="w-4 h-4" /> Sign Out
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </TooltipTrigger>
+            <TooltipContent side="right">{user?.name}</TooltipContent>
+          </Tooltip>
+        ) : (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button className="w-full flex items-center gap-3 p-2 rounded hover:bg-sidebar-accent transition-colors group">
+                <div className="w-9 h-9 rounded-full bg-sidebar-accent border border-sidebar-border flex items-center justify-center text-sidebar-foreground font-semibold shrink-0">
+                  {user?.name?.charAt(0).toUpperCase() || 'U'}
+                </div>
+                <div className="flex-1 min-w-0 text-left">
+                  <div className="text-sm font-medium text-sidebar-foreground truncate">{user?.name}</div>
+                  <div className="text-xs text-sidebar-foreground/50 truncate capitalize">{user?.role}</div>
+                </div>
+                <ChevronUp className="w-4 h-4 text-sidebar-foreground/40 group-hover:text-sidebar-foreground/70 transition-colors shrink-0" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent side="top" align="start" className="w-52 mb-1">
+              <DropdownMenuItem className="gap-2 cursor-pointer" onSelect={() => { form.reset(); setChangePasswordOpen(true); }}>
+                <KeyRound className="w-4 h-4" /> Change Password
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem className="gap-2 cursor-pointer text-destructive focus:text-destructive" onSelect={handleLogout}>
+                <LogOut className="w-4 h-4" /> Sign Out
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
+
+        {/* Collapse toggle */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              onClick={toggleCollapsed}
+              className={cn(
+                'mt-2 w-full flex items-center rounded text-sidebar-foreground/40 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors text-xs font-medium',
+                collapsed ? 'justify-center p-2' : 'gap-2 px-2 py-1.5',
+              )}
+            >
+              {collapsed
+                ? <PanelLeftOpen className="w-4 h-4" />
+                : <><PanelLeftClose className="w-4 h-4" /><span>Collapse</span></>
+              }
+            </button>
+          </TooltipTrigger>
+          {collapsed && <TooltipContent side="right">Expand sidebar</TooltipContent>}
+        </Tooltip>
+      </div>
+    </TooltipProvider>
+  );
+
+  // ── Mobile nav content (sheet) ───────────────────────────────────────────
+  const MobileNav = () => (
+    <>
+      <div className="h-16 flex items-center px-6 border-b border-sidebar-border/50 gap-3">
+        <div className="bg-primary p-1.5 rounded flex items-center justify-center">
+          <ScanText className="w-5 h-5 text-primary-foreground" />
+        </div>
+        <div className="flex flex-col">
+          <span className="font-bold text-lg text-sidebar-foreground leading-none">DocScan</span>
+          <span className="text-[9px] font-semibold text-sidebar-foreground/60 tracking-[0.2em]">ENTERPRISE</span>
         </div>
       </div>
 
@@ -145,9 +299,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
             const Icon = item.icon;
             const isActive = location === item.href || location.startsWith(`${item.href}/`);
             return (
-              <Link
-                key={item.href}
-                href={item.href}
+              <Link key={item.href} href={item.href}
                 className={cn(
                   'group flex items-center gap-3 px-3 py-2 rounded text-sm font-medium transition-colors relative',
                   isActive
@@ -156,12 +308,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 )}
               >
                 {isActive && (
-                  <motion.div
-                    layoutId="activeNavIndicator"
-                    className="absolute left-0 top-0 bottom-0 w-1 bg-primary rounded-r"
-                  />
+                  <motion.div layoutId="activeMobileNavIndicator"
+                    className="absolute left-0 top-0 bottom-0 w-1 bg-primary rounded-r" />
                 )}
-                <Icon className={cn('w-4 h-4 shrink-0 transition-colors', isActive ? 'text-primary' : 'group-hover:text-sidebar-foreground')} />
+                <Icon className={cn('w-4 h-4 shrink-0', isActive ? 'text-primary' : '')} />
                 <span>{item.label}</span>
               </Link>
             );
@@ -169,7 +319,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
         </div>
       </div>
 
-      {/* User section with dropdown */}
       <div className="p-4 border-t border-sidebar-border/50">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -179,29 +328,18 @@ export function Layout({ children }: { children: React.ReactNode }) {
               </div>
               <div className="flex-1 min-w-0 text-left">
                 <div className="text-sm font-medium text-sidebar-foreground truncate">{user?.name}</div>
-                <div className="text-xs text-sidebar-foreground/50 truncate capitalize">{user?.role}</div>
+                <div className="text-xs text-sidebar-foreground/50 capitalize">{user?.role}</div>
               </div>
-              <ChevronUp className="w-4 h-4 text-sidebar-foreground/40 group-hover:text-sidebar-foreground/70 transition-colors shrink-0" />
+              <ChevronUp className="w-4 h-4 text-sidebar-foreground/40 shrink-0" />
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent side="top" align="start" className="w-52 mb-1">
-            <DropdownMenuItem
-              className="gap-2 cursor-pointer"
-              onSelect={() => {
-                form.reset();
-                setChangePasswordOpen(true);
-              }}
-            >
-              <KeyRound className="w-4 h-4" />
-              Change Password
+            <DropdownMenuItem className="gap-2 cursor-pointer" onSelect={() => { form.reset(); setChangePasswordOpen(true); }}>
+              <KeyRound className="w-4 h-4" /> Change Password
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem
-              className="gap-2 cursor-pointer text-destructive focus:text-destructive"
-              onSelect={handleLogout}
-            >
-              <LogOut className="w-4 h-4" />
-              Sign Out
+            <DropdownMenuItem className="gap-2 cursor-pointer text-destructive focus:text-destructive" onSelect={handleLogout}>
+              <LogOut className="w-4 h-4" /> Sign Out
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -213,13 +351,18 @@ export function Layout({ children }: { children: React.ReactNode }) {
     <>
       <div className="flex min-h-[100dvh] bg-background text-foreground">
         {/* Desktop Sidebar */}
-        <aside className="w-[260px] bg-sidebar flex-col hidden md:flex shrink-0 shadow-[4px_0_24px_rgba(0,0,0,0.02)] z-20">
-          <NavContent />
+        <aside
+          className={cn(
+            'bg-sidebar flex-col hidden md:flex shrink-0 shadow-[4px_0_24px_rgba(0,0,0,0.02)] z-20 transition-all duration-300 overflow-hidden',
+            collapsed ? 'w-16' : 'w-[260px]',
+          )}
+        >
+          <DesktopNav />
         </aside>
 
         {/* Main Content */}
         <main className="flex-1 flex flex-col min-w-0 h-[100dvh]">
-          {/* Mobile menu — only visible on small screens */}
+          {/* Mobile menu */}
           <div className="md:hidden flex items-center px-4 py-2 border-b border-border bg-card shrink-0">
             <Sheet>
               <SheetTrigger asChild>
@@ -228,7 +371,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 </Button>
               </SheetTrigger>
               <SheetContent side="left" className="w-[260px] p-0 bg-sidebar border-r-0 flex flex-col">
-                <NavContent />
+                <MobileNav />
               </SheetContent>
             </Sheet>
           </div>
@@ -252,41 +395,31 @@ export function Layout({ children }: { children: React.ReactNode }) {
               Enter your current password and choose a new one. Minimum 8 characters.
             </DialogDescription>
           </DialogHeader>
-
           <Form {...form}>
             <form onSubmit={form.handleSubmit(handleChangePassword)} className="space-y-4 pt-2">
               <FormField control={form.control} name="currentPassword" render={({ field }) => (
                 <FormItem>
                   <FormLabel>Current Password</FormLabel>
-                  <FormControl>
-                    <Input type="password" placeholder="••••••••" autoComplete="current-password" {...field} />
-                  </FormControl>
+                  <FormControl><Input type="password" placeholder="••••••••" autoComplete="current-password" {...field} /></FormControl>
                   <FormMessage />
                 </FormItem>
               )} />
               <FormField control={form.control} name="newPassword" render={({ field }) => (
                 <FormItem>
                   <FormLabel>New Password</FormLabel>
-                  <FormControl>
-                    <Input type="password" placeholder="••••••••" autoComplete="new-password" {...field} />
-                  </FormControl>
+                  <FormControl><Input type="password" placeholder="••••••••" autoComplete="new-password" {...field} /></FormControl>
                   <FormMessage />
                 </FormItem>
               )} />
               <FormField control={form.control} name="confirmPassword" render={({ field }) => (
                 <FormItem>
                   <FormLabel>Confirm New Password</FormLabel>
-                  <FormControl>
-                    <Input type="password" placeholder="••••••••" autoComplete="new-password" {...field} />
-                  </FormControl>
+                  <FormControl><Input type="password" placeholder="••••••••" autoComplete="new-password" {...field} /></FormControl>
                   <FormMessage />
                 </FormItem>
               )} />
-
               <DialogFooter className="pt-2">
-                <Button type="button" variant="outline" onClick={() => setChangePasswordOpen(false)}>
-                  Cancel
-                </Button>
+                <Button type="button" variant="outline" onClick={() => setChangePasswordOpen(false)}>Cancel</Button>
                 <Button type="submit" disabled={changePasswordMutation.isPending}>
                   {changePasswordMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                   Update Password

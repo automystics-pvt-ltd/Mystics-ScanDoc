@@ -13,6 +13,17 @@ async function ensureSettings() {
       maxRecipients: 5,
       maxFileSizeMb: 10,
       allowedFileTypes: "pdf,jpg,jpeg,png",
+      emailProvider: "resend",
+      notificationChannels: "email",
+      defaultNotificationChannel: "email",
+      retentionDays: 30,
+      scannerPaperSize: "A4",
+      scannerResolutionDpi: 300,
+      scannerColorMode: "color",
+      scannerFileFormat: "pdf",
+      scannerDuplex: false,
+      scannerBrightness: 0,
+      scannerContrast: 0,
     }).returning();
     return s;
   }
@@ -28,15 +39,55 @@ router.get("/admin/settings", requireAuth, requireAdmin, async (_req, res): Prom
 // PUT /admin/settings
 router.put("/admin/settings", requireAuth, requireAdmin, async (req, res): Promise<void> => {
   const settings = await ensureSettings();
+  const b = req.body;
 
   const updates: Record<string, any> = {};
-  if (req.body.smtpHost !== undefined) updates.smtpHost = req.body.smtpHost;
-  if (req.body.smtpPort !== undefined) updates.smtpPort = Number(req.body.smtpPort);
-  if (req.body.smtpUser !== undefined) updates.smtpUser = req.body.smtpUser;
-  if (req.body.smtpPass !== undefined) updates.smtpPass = req.body.smtpPass;
-  if (req.body.maxRecipients !== undefined) updates.maxRecipients = Math.min(5, Math.max(1, Number(req.body.maxRecipients)));
-  if (req.body.maxFileSizeMb !== undefined) updates.maxFileSizeMb = Math.max(1, Number(req.body.maxFileSizeMb));
-  if (req.body.allowedFileTypes !== undefined) updates.allowedFileTypes = req.body.allowedFileTypes;
+
+  // ── Email transport (legacy SMTP) ────────────────────────────────────────
+  if (b.smtpHost !== undefined) updates.smtpHost = b.smtpHost;
+  if (b.smtpPort !== undefined) updates.smtpPort = Number(b.smtpPort);
+  if (b.smtpUser !== undefined) updates.smtpUser = b.smtpUser;
+  if (b.smtpPass !== undefined) updates.smtpPass = b.smtpPass;
+
+  // ── Email provider ───────────────────────────────────────────────────────
+  if (b.emailProvider !== undefined) updates.emailProvider = b.emailProvider;
+  if (b.emailProviderApiKey !== undefined) updates.emailProviderApiKey = b.emailProviderApiKey;
+  if (b.emailProviderDomain !== undefined) updates.emailProviderDomain = b.emailProviderDomain;
+
+  // ── SMS provider ─────────────────────────────────────────────────────────
+  if (b.smsEnabled !== undefined) updates.smsEnabled = Boolean(b.smsEnabled);
+  if (b.smsProvider !== undefined) updates.smsProvider = b.smsProvider;
+  if (b.smsProviderApiKey !== undefined) updates.smsProviderApiKey = b.smsProviderApiKey;
+  if (b.smsProviderSecret !== undefined) updates.smsProviderSecret = b.smsProviderSecret;
+  if (b.smsProviderFrom !== undefined) updates.smsProviderFrom = b.smsProviderFrom;
+
+  // ── WhatsApp provider ────────────────────────────────────────────────────
+  if (b.whatsappEnabled !== undefined) updates.whatsappEnabled = Boolean(b.whatsappEnabled);
+  if (b.whatsappProvider !== undefined) updates.whatsappProvider = b.whatsappProvider;
+  if (b.whatsappProviderApiKey !== undefined) updates.whatsappProviderApiKey = b.whatsappProviderApiKey;
+  if (b.whatsappProviderFrom !== undefined) updates.whatsappProviderFrom = b.whatsappProviderFrom;
+
+  // ── Notification channels ────────────────────────────────────────────────
+  if (b.notificationChannels !== undefined) updates.notificationChannels = b.notificationChannels;
+  if (b.defaultNotificationChannel !== undefined) updates.defaultNotificationChannel = b.defaultNotificationChannel;
+
+  // ── Document constraints ─────────────────────────────────────────────────
+  if (b.maxRecipients !== undefined) updates.maxRecipients = Math.min(10, Math.max(1, Number(b.maxRecipients)));
+  if (b.maxFileSizeMb !== undefined) updates.maxFileSizeMb = Math.max(1, Number(b.maxFileSizeMb));
+  if (b.allowedFileTypes !== undefined) updates.allowedFileTypes = b.allowedFileTypes;
+
+  // ── Retention policy ─────────────────────────────────────────────────────
+  if (b.retentionDays !== undefined) updates.retentionDays = Math.max(0, Math.min(3650, Number(b.retentionDays)));
+
+  // ── Scanner settings ─────────────────────────────────────────────────────
+  if (b.scannerName !== undefined) updates.scannerName = b.scannerName;
+  if (b.scannerPaperSize !== undefined) updates.scannerPaperSize = b.scannerPaperSize;
+  if (b.scannerResolutionDpi !== undefined) updates.scannerResolutionDpi = Number(b.scannerResolutionDpi);
+  if (b.scannerColorMode !== undefined) updates.scannerColorMode = b.scannerColorMode;
+  if (b.scannerFileFormat !== undefined) updates.scannerFileFormat = b.scannerFileFormat;
+  if (b.scannerDuplex !== undefined) updates.scannerDuplex = Boolean(b.scannerDuplex);
+  if (b.scannerBrightness !== undefined) updates.scannerBrightness = Math.max(-100, Math.min(100, Number(b.scannerBrightness)));
+  if (b.scannerContrast !== undefined) updates.scannerContrast = Math.max(-100, Math.min(100, Number(b.scannerContrast)));
 
   const [updated] = await db
     .update(settingsTable)
@@ -47,14 +98,14 @@ router.put("/admin/settings", requireAuth, requireAdmin, async (req, res): Promi
   await db.insert(auditLogsTable).values({
     action: "settings_updated",
     userId: req.user!.id,
-    details: `Updated system settings`,
+    details: `Updated system settings (fields: ${Object.keys(updates).join(", ")})`,
     ipAddress: req.ip,
   });
 
   res.json(updated);
 });
 
-// POST /admin/test-email — send a test email via Resend
+// POST /admin/test-email
 router.post("/admin/test-email", requireAuth, requireAdmin, async (req, res): Promise<void> => {
   const { to } = req.body;
   if (!to || typeof to !== "string") {
