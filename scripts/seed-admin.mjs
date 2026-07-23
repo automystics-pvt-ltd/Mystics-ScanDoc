@@ -1,22 +1,25 @@
 /**
  * Seed default admin and regular user accounts.
- * Run via deploy.sh — must be invoked through pnpm exec so workspace
- * packages (pg, bcryptjs) are resolvable.
+ * Invoked by deploy.sh after drizzle-kit push.
  */
 import { createRequire } from "module";
 import { fileURLToPath } from "url";
 import path from "path";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const require = createRequire(import.meta.url);
 
-// Resolve bcryptjs from the workspace
+// Resolve packages from api-server's context so pnpm can find them
+const apiServerPkg = path.resolve(__dirname, "../artifacts/api-server/package.json");
+const require = createRequire(apiServerPkg);
+
+const { Pool } = require("pg");
+
 let bcrypt;
 try {
   bcrypt = require("bcryptjs");
 } catch {
+  // pnpm content-addressable fallback
   const candidates = [
-    path.resolve(__dirname, "../node_modules/bcryptjs"),
     path.resolve(__dirname, "../node_modules/.pnpm/bcryptjs@3.0.3/node_modules/bcryptjs"),
     path.resolve(__dirname, "../artifacts/api-server/node_modules/bcryptjs"),
   ];
@@ -25,10 +28,6 @@ try {
   }
   if (!bcrypt) throw new Error("bcryptjs not found — run pnpm install");
 }
-
-// Dynamic import so Node resolves pg from the calling package context
-const { default: pg } = await import("pg");
-const { Pool } = pg;
 
 if (!process.env.DATABASE_URL) {
   console.error("DATABASE_URL is not set");
