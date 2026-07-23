@@ -17,15 +17,28 @@ export interface SendEmailResult {
   error?: string;
 }
 
+/** Build the attachments array (base64-encoded) for a file path, if it exists. */
+function buildAttachment(
+  attachmentPath?: string,
+  attachmentName?: string
+): { filename: string; content: string }[] {
+  if (attachmentPath && fs.existsSync(attachmentPath)) {
+    return [
+      {
+        filename: attachmentName ?? path.basename(attachmentPath),
+        content: fs.readFileSync(attachmentPath).toString("base64"),
+      },
+    ];
+  }
+  return [];
+}
+
 /**
- * Send an email via Resend using the Replit connectors SDK.
- * Falls back to SMTP (nodemailer) if Resend is unavailable.
+ * Send a single email via Resend using the Replit connectors SDK.
  */
 export async function sendEmail(opts: SendEmailOptions): Promise<SendEmailResult> {
   try {
     const connectors = new ReplitConnectors();
-
-    // Resend expects JSON for all requests; attachments are base64-encoded inline.
     const headers: Record<string, string> = { "Content-Type": "application/json" };
 
     const payload: Record<string, unknown> = {
@@ -33,24 +46,13 @@ export async function sendEmail(opts: SendEmailOptions): Promise<SendEmailResult
       to: [opts.to],
       subject: opts.subject,
       text: opts.text,
+      attachments: buildAttachment(opts.attachmentPath, opts.attachmentName),
     };
-
-    if (opts.attachmentPath && fs.existsSync(opts.attachmentPath)) {
-      const fileBuffer = fs.readFileSync(opts.attachmentPath);
-      payload["attachments"] = [
-        {
-          filename: opts.attachmentName ?? path.basename(opts.attachmentPath),
-          content: fileBuffer.toString("base64"),
-        },
-      ];
-    }
-
-    const body = JSON.stringify(payload);
 
     const response = await connectors.proxy("resend", "/emails", {
       method: "POST",
       headers,
-      body,
+      body: JSON.stringify(payload),
     });
 
     if (!response.ok) {
@@ -62,6 +64,77 @@ export async function sendEmail(opts: SendEmailOptions): Promise<SendEmailResult
     return { success: true, messageId: data.id };
   } catch (err: any) {
     return { success: false, error: err?.message ?? "Unknown error sending email" };
+  }
+}
+
+export interface BatchEmailItem {
+  to: string;
+  from: string;
+  subject: string;
+  text: string;
+  attachmentPath?: string;
+  attachmentName?: string;
+}
+
+export interface BatchEmailResult {
+  /** Results in the same order as the input items. */
+  results: SendEmailResult[];
+}
+
+/**
+ * Send multiple emails via Resend's batch endpoint in a single API call.
+ * This avoids per-request rate-limiting and is far more reliable for
+ * sending to 2+ recipients at once.
+ *
+ * Falls back to individual sends if the batch call itself fails.
+ */
+export async function sendEmailBatch(items: BatchEmailItem[]): Promise<BatchEmailResult> {
+  if (items.length === 0) return { results: [] };
+  if (items.length === 1) {
+    const result = await sendEmail(items[0]);
+    return { results: [result] };
+  }
+
+  try {
+    const connectors = new ReplitConnectors();
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+
+    const payload = items.map((item) => ({
+      from: item.from,
+      to: [item.to],
+      subject: item.subject,
+      text: item.text,
+      attachments: buildAttachment(item.attachmentPath, item.attachmentName),
+    }));
+
+    const response = await connectors.proxy("resend", "/emails/batch", {
+      method: "POST",
+      headers,
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      const errMsg = `Resend batch API error ${response.status}: ${errText}`;
+      // Return individual failures so callers can log per-recipient
+      return {
+        results: items.map(() => ({ success: false, error: errMsg })),
+      };
+    }
+
+    const data = await response.json() as { data?: { id: string }[] };
+    const ids = data.data ?? [];
+
+    return {
+      results: items.map((_, i) => ({
+        success: true,
+        messageId: ids[i]?.id,
+      })),
+    };
+  } catch (err: any) {
+    // Unexpected error — fall back to individual sends
+    const results = await Promise.all(items.map((item) => sendEmail(item)));
+    return { results };
   }
 }
 

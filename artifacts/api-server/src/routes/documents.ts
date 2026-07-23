@@ -2,11 +2,11 @@ import { Router, type IRouter } from "express";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
-import { eq, desc, isNull } from "drizzle-orm";
+import { eq, desc, isNull, and } from "drizzle-orm";
 import { db, documentsTable, emailLogsTable, recipientsTable, settingsTable, auditLogsTable } from "@workspace/db";
 import { requireAuth } from "../middlewares/auth";
 import { logger } from "../lib/logger";
-import { sendEmail, resolveFromAddress } from "../lib/email";
+import { sendEmailBatch, resolveFromAddress } from "../lib/email";
 
 const router: IRouter = Router();
 
@@ -122,16 +122,16 @@ router.post("/documents/:id/send", requireAuth, async (req, res): Promise<void> 
     return;
   }
 
-  // Get recipients: user-specific first, then global
+  // Get active recipients: user-specific first, then global
   const userRecipients = await db
     .select()
     .from(recipientsTable)
-    .where(eq(recipientsTable.userId, req.user!.id));
+    .where(and(eq(recipientsTable.userId, req.user!.id), eq(recipientsTable.isActive, true)));
 
   const globalRecipients = await db
     .select()
     .from(recipientsTable)
-    .where(isNull(recipientsTable.userId));
+    .where(and(isNull(recipientsTable.userId), eq(recipientsTable.isActive, true)));
 
   const recipients = userRecipients.length > 0 ? userRecipients : globalRecipients;
 
@@ -157,46 +157,42 @@ router.post("/documents/:id/send", requireAuth, async (req, res): Promise<void> 
     })
   );
 
-  // Attempt actual email sending via Resend
-  type LogEntry = (typeof logEntries)[number];
-  const sendResults: LogEntry[] = [];
-
+  // Send all emails in a single Resend batch call to avoid rate-limiting
   const fromAddress = resolveFromAddress(settings?.smtpUser);
 
-  for (const entry of logEntries) {
-    let sent = false;
-    let errorMsg: string | undefined;
-    let messageId: string | undefined;
-
-    const result = await sendEmail({
+  const { results: batchResults } = await sendEmailBatch(
+    logEntries.map((entry) => ({
       from: fromAddress,
       to: entry.recipientEmail,
       subject: `Document: ${doc.fileName}`,
       text: `${req.user!.name} has sent you a document: ${doc.fileName}`,
       attachmentPath: doc.filePath,
       attachmentName: doc.fileName,
-    });
+    }))
+  );
 
-    sent = result.success;
-    messageId = result.messageId;
-    errorMsg = result.error;
+  // Persist the per-recipient outcome
+  type LogEntry = (typeof logEntries)[number];
+  const sendResults: LogEntry[] = [];
+
+  for (let i = 0; i < logEntries.length; i++) {
+    const entry = logEntries[i];
+    const result = batchResults[i];
+    const sent = result.success;
 
     if (!sent) {
-      req.log.error({ error: errorMsg }, "Failed to send email via Resend");
+      req.log.error({ error: result.error, recipient: entry.recipientEmail }, "Failed to send email via Resend");
     }
 
-    // On failure, schedule a retry rather than hard-failing immediately
-    const nextStatus = sent
-      ? "sent"
-      : "retry_pending";
-    const nextRetryAt = sent ? null : new Date(Date.now() + 60_000); // first retry in 1 min
+    const nextStatus = sent ? "sent" : "retry_pending";
+    const nextRetryAt = sent ? null : new Date(Date.now() + 60_000);
 
     const [updated] = await db
       .update(emailLogsTable)
       .set({
         status: nextStatus,
-        messageId: messageId ?? null,
-        errorMessage: errorMsg ?? null,
+        messageId: result.messageId ?? null,
+        errorMessage: result.error ?? null,
         retryCount: sent ? 0 : 1,
         nextRetryAt,
       })
