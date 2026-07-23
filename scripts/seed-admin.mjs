@@ -4,10 +4,30 @@
  * Requires DATABASE_URL to be set in the environment.
  */
 import { createRequire } from "module";
-const require = createRequire(import.meta.url);
-const bcrypt = require("/home/runner/workspace/node_modules/.pnpm/bcryptjs@3.0.3/node_modules/bcryptjs/dist/bcrypt.js");
-import pg from "pg";
+import { createHash } from "crypto";
+import { fileURLToPath } from "url";
+import path from "path";
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const require = createRequire(import.meta.url);
+
+// Resolve bcryptjs from the workspace — works on both Replit and the server
+let bcrypt;
+try {
+  bcrypt = require("bcryptjs");
+} catch {
+  // pnpm stores modules in a content-addressable layout; walk up to find it
+  const candidates = [
+    path.resolve(__dirname, "../node_modules/bcryptjs"),
+    path.resolve(__dirname, "../node_modules/.pnpm/bcryptjs@3.0.3/node_modules/bcryptjs"),
+  ];
+  for (const c of candidates) {
+    try { bcrypt = require(c); break; } catch { /* try next */ }
+  }
+  if (!bcrypt) throw new Error("bcryptjs not found — run pnpm install");
+}
+
+import pg from "pg";
 const { Pool } = pg;
 
 if (!process.env.DATABASE_URL) {
