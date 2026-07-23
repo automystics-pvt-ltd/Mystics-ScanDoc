@@ -171,7 +171,7 @@ export async function sendEmailBatch(items: BatchEmailItem[]): Promise<BatchEmai
 export function resolveFromAddress(smtpUser?: string | null): string {
   return smtpUser
     ? `DocScan <${smtpUser}>`
-    : "DocScan <onboarding@resend.dev>";
+    : "DocScan <noreply@automystics.tech>";
 }
 
 /**
