@@ -105,7 +105,14 @@ DATABASE_URL="$PROD_DATABASE_URL" \
 ok "Schema up to date"
 
 # ══════════════════════════════════════════════════════════════════════════════
-#  STEP 4 — Deploy web app (static files)
+#  STEP 4 — Seed default accounts (skipped if already exist)
+# ══════════════════════════════════════════════════════════════════════════════
+step "Seeding default accounts"
+DATABASE_URL="$PROD_DATABASE_URL" node scripts/seed-admin.mjs
+ok "Accounts ready"
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  STEP 5 — Deploy web app (static files)
 # ══════════════════════════════════════════════════════════════════════════════
 step "Deploying web app → ${REMOTE_WEB}"
 info "Syncing static files…"

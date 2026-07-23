@@ -1,5 +1,5 @@
 /**
- * Seed an initial admin account.
+ * Seed default admin and regular user accounts.
  * Run: node scripts/seed-admin.mjs
  * Requires DATABASE_URL to be set in the environment.
  */
@@ -17,24 +17,36 @@ if (!process.env.DATABASE_URL) {
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
-const email = process.env.ADMIN_EMAIL ?? "admin@docscan.local";
-const password = process.env.ADMIN_PASSWORD ?? "Admin@1234";
-const name = process.env.ADMIN_NAME ?? "Admin";
+const users = [
+  {
+    name:     process.env.ADMIN_NAME     ?? "Admin",
+    email:    process.env.ADMIN_EMAIL    ?? "admin@automystics.tech",
+    password: process.env.ADMIN_PASSWORD ?? "Admin@2026$",
+    role:     "admin",
+  },
+  {
+    name:     process.env.USER_NAME     ?? "User",
+    email:    process.env.USER_EMAIL    ?? "user@automystics.tech",
+    password: process.env.USER_PASSWORD ?? "User@2026$",
+    role:     "user",
+  },
+];
 
-const hash = await bcrypt.hash(password, 12);
+for (const u of users) {
+  const hash = await bcrypt.hash(u.password, 12);
+  const { rows } = await pool.query(
+    `INSERT INTO users (name, email, password_hash, role, status)
+     VALUES ($1, $2, $3, $4, 'active')
+     ON CONFLICT (email) DO NOTHING
+     RETURNING id, email, role`,
+    [u.name, u.email, hash, u.role],
+  );
 
-const { rows } = await pool.query(
-  `INSERT INTO users (name, email, password_hash, role, status)
-   VALUES ($1, $2, $3, 'admin', 'active')
-   ON CONFLICT (email) DO NOTHING
-   RETURNING id, email, role`,
-  [name, email, hash]
-);
-
-if (rows.length > 0) {
-  console.log("Admin seeded:", rows[0]);
-} else {
-  console.log("Admin already exists, skipping.");
+  if (rows.length > 0) {
+    console.log(`✓ Seeded ${rows[0].role}: ${rows[0].email}`);
+  } else {
+    console.log(`— Skipped (already exists): ${u.email}`);
+  }
 }
 
 await pool.end();
