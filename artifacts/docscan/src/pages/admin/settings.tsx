@@ -4,7 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Save, Server, Loader2, Mail, CheckCircle2, XCircle, SlidersHorizontal, ShieldAlert } from 'lucide-react';
+import { Save, Server, Loader2, Mail, CheckCircle2, XCircle, SlidersHorizontal, ShieldAlert, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
@@ -113,6 +113,18 @@ export default function Settings() {
           </p>
         </div>
       </div>
+
+      {!settings?.smtpUser && (
+        <div className="bg-amber-50 border border-amber-300 rounded-lg p-4 flex items-start gap-3">
+          <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+          <div>
+            <p className="font-semibold text-amber-800 text-sm">From address not configured — emails will only reach your Resend account email</p>
+            <p className="text-amber-700 text-sm mt-1">
+              The system is using the sandbox default <code className="bg-amber-100 px-1 rounded font-mono">onboarding@resend.dev</code>, which Resend restricts to your own account email only. To send to all recipients, enter a verified sender address below (e.g. <code className="bg-amber-100 px-1 rounded font-mono">noreply@yourdomain.com</code>) and save.
+            </p>
+          </div>
+        </div>
+      )}
 
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">

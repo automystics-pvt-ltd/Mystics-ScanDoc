@@ -2,6 +2,32 @@ import { ReplitConnectors } from "@replit/connectors-sdk";
 import fs from "fs";
 import path from "path";
 
+/** Convert a raw Resend API error body into a plain-English message. */
+function parseResendError(status: number, body: string): string {
+  try {
+    const json = JSON.parse(body) as { message?: string; name?: string };
+    const msg = json.message ?? body;
+
+    if (status === 403) {
+      // Sandbox restriction: from address is onboarding@resend.dev
+      if (msg.toLowerCase().includes("testing") || msg.toLowerCase().includes("own email")) {
+        return "From address not configured — go to Settings and enter a verified sender address (e.g. noreply@yourdomain.com). The sandbox default only delivers to your Resend account email.";
+      }
+      return `Permission denied by Resend (403): ${msg}`;
+    }
+    if (status === 422) {
+      if (msg.toLowerCase().includes("testing email") || msg.toLowerCase().includes("own email")) {
+        return "Sandbox restriction: From address is 'onboarding@resend.dev' which only delivers to your Resend account email. Go to Settings → Transport Identity and enter a verified sender address (e.g. noreply@yourdomain.com).";
+      }
+      return `Invalid email parameters (422): ${msg}`;
+    }
+    if (status === 429) return `Resend rate limit exceeded (429) — retry scheduled.`;
+    return `Resend error ${status}: ${msg}`;
+  } catch {
+    return `Resend error ${status}: ${body}`;
+  }
+}
+
 export interface SendEmailOptions {
   to: string;
   from: string;
@@ -57,7 +83,7 @@ export async function sendEmail(opts: SendEmailOptions): Promise<SendEmailResult
 
     if (!response.ok) {
       const errText = await response.text();
-      return { success: false, error: `Resend API error ${response.status}: ${errText}` };
+      return { success: false, error: parseResendError(response.status, errText) };
     }
 
     const data = await response.json() as { id?: string };
@@ -115,8 +141,7 @@ export async function sendEmailBatch(items: BatchEmailItem[]): Promise<BatchEmai
 
     if (!response.ok) {
       const errText = await response.text();
-      const errMsg = `Resend batch API error ${response.status}: ${errText}`;
-      // Return individual failures so callers can log per-recipient
+      const errMsg = parseResendError(response.status, errText);
       return {
         results: items.map(() => ({ success: false, error: errMsg })),
       };
