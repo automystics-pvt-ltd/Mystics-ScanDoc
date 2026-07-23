@@ -54,7 +54,19 @@ ok "DB schema up to date"
 
 # ── Step 4 — Seed default accounts ───────────────────────────────────────────
 info "Step 4/7 — Seed default accounts (skipped if already exist)"
-pnpm --filter @workspace/db exec tsx src/seed.ts
+# Hashes pre-computed with bcryptjs rounds=12:
+#   admin@automystics.tech / Admin@2026$
+#   user@automystics.tech  / User@2026$
+psql "$DATABASE_URL" <<'SQL'
+INSERT INTO users (name, email, password_hash, role, status) VALUES
+  ('Admin', 'admin@automystics.tech',
+   '$2b$12$LXOevXJu4psicCrD2/ZZO.xDsxB7nO9W6HTw0k7bpcHn9zfyprpmG',
+   'admin', 'active'),
+  ('User',  'user@automystics.tech',
+   '$2b$12$TAzZX4iT6a/CxWvfmR1y8u0AoIPpuU7ayXc7se2vrHB5hyRXMIxTK',
+   'user',  'active')
+ON CONFLICT (email) DO NOTHING;
+SQL
 ok "Accounts ready"
 
 # ── Step 5 — Build API server ─────────────────────────────────────────────────
