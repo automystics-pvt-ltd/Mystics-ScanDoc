@@ -186,6 +186,12 @@ export interface Recipient {
   createdAt: string;
 }
 
+export interface ChangePasswordInput {
+  currentPassword: string;
+  /** @minLength 8 */
+  newPassword: string;
+}
+
 export interface RecipientInput {
   recipientEmail: string;
   /** @nullable */

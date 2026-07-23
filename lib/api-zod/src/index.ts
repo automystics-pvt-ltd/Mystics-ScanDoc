@@ -8,6 +8,7 @@ export * from "./generated/api";
 // `export type { … }` so the zod schema value in api.ts is not shadowed.
 export * from "./generated/types/auditLog";
 export * from "./generated/types/authResponse";
+export * from "./generated/types/changePasswordInput";
 export * from "./generated/types/dashboardStats";
 export * from "./generated/types/document";
 export * from "./generated/types/documentWithLogs";

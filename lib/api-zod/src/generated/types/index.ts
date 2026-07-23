@@ -8,6 +8,7 @@
 
 export * from './auditLog';
 export * from './authResponse';
+export * from './changePasswordInput';
 export * from './dashboardStats';
 export * from './document';
 export * from './documentWithLogs';
