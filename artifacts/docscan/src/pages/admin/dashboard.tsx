@@ -1,4 +1,3 @@
-import { customFetch } from '@workspace/api-client-react';
 import type { DashboardStats } from '@workspace/api-client-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -84,8 +83,12 @@ export default function Dashboard() {
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    customFetch<DashboardStats>(`/api/admin/dashboard?days=${days}`)
-      .then(data => { if (!cancelled) setStats(data); })
+    const token = localStorage.getItem('docscan_token');
+    fetch(`/api/admin/dashboard?days=${days}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    })
+      .then(r => r.ok ? r.json() : Promise.reject(r.status))
+      .then((data: DashboardStats) => { if (!cancelled) setStats(data); })
       .catch(() => {/* stay on current data */})
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
