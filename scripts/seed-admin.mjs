@@ -1,25 +1,24 @@
 /**
  * Seed default admin and regular user accounts.
- * Run: node scripts/seed-admin.mjs
- * Requires DATABASE_URL to be set in the environment.
+ * Run via deploy.sh — must be invoked through pnpm exec so workspace
+ * packages (pg, bcryptjs) are resolvable.
  */
 import { createRequire } from "module";
-import { createHash } from "crypto";
 import { fileURLToPath } from "url";
 import path from "path";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
 
-// Resolve bcryptjs from the workspace — works on both Replit and the server
+// Resolve bcryptjs from the workspace
 let bcrypt;
 try {
   bcrypt = require("bcryptjs");
 } catch {
-  // pnpm stores modules in a content-addressable layout; walk up to find it
   const candidates = [
     path.resolve(__dirname, "../node_modules/bcryptjs"),
     path.resolve(__dirname, "../node_modules/.pnpm/bcryptjs@3.0.3/node_modules/bcryptjs"),
+    path.resolve(__dirname, "../artifacts/api-server/node_modules/bcryptjs"),
   ];
   for (const c of candidates) {
     try { bcrypt = require(c); break; } catch { /* try next */ }
@@ -27,7 +26,8 @@ try {
   if (!bcrypt) throw new Error("bcryptjs not found — run pnpm install");
 }
 
-import pg from "pg";
+// Dynamic import so Node resolves pg from the calling package context
+const { default: pg } = await import("pg");
 const { Pool } = pg;
 
 if (!process.env.DATABASE_URL) {
