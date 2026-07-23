@@ -75,7 +75,9 @@ function Severity({ retries }: { retries?: number }) {
 
 // ── Dashboard ─────────────────────────────────────────────────────────────────
 export default function Dashboard() {
+  const todayStr = format(new Date(), 'yyyy-MM-dd');
   const [days, setDays] = useState(30);
+  const [endDate, setEndDate] = useState(todayStr);
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [, setLocation] = useLocation();
@@ -84,7 +86,7 @@ export default function Dashboard() {
     let cancelled = false;
     setLoading(true);
     const token = localStorage.getItem('docscan_token');
-    fetch(`/api/admin/dashboard?days=${days}`, {
+    fetch(`/api/admin/dashboard?days=${days}&endDate=${endDate}`, {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
     })
       .then(r => r.ok ? r.json() : Promise.reject(r.status))
@@ -92,7 +94,7 @@ export default function Dashboard() {
       .catch(() => {/* stay on current data */})
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [days]);
+  }, [days, endDate]);
 
   if (loading && !stats) {
     return (
@@ -126,9 +128,13 @@ export default function Dashboard() {
           <h1 className="text-2xl font-bold tracking-tight text-foreground">Overview</h1>
           <p className="text-muted-foreground text-sm mt-1">Welcome back. Here's what's happening today.</p>
         </div>
-        <div className="hidden sm:block text-xs font-semibold text-muted-foreground bg-card border border-border px-3 py-1.5 rounded-md">
-          {format(new Date(), 'MMMM d, yyyy')}
-        </div>
+        <input
+          type="date"
+          value={endDate}
+          max={todayStr}
+          onChange={e => e.target.value && setEndDate(e.target.value)}
+          className="hidden sm:block text-xs font-semibold text-muted-foreground bg-card border border-border px-3 py-1.5 rounded-md cursor-pointer hover:border-primary focus:outline-none focus:border-primary transition-colors"
+        />
       </div>
 
       {/* KPI cards */}

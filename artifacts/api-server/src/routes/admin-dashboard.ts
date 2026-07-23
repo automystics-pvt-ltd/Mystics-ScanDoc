@@ -5,14 +5,20 @@ import { requireAuth, requireAdmin } from "../middlewares/auth";
 
 const router: IRouter = Router();
 
-// GET /admin/dashboard?days=30
+// GET /admin/dashboard?days=30&endDate=2026-07-23
 router.get("/admin/dashboard", requireAuth, requireAdmin, async (req, res): Promise<void> => {
   const days = Math.min(90, Math.max(7, Number(req.query.days) || 30));
 
-  const now = new Date();
-
-  const today = new Date(now);
+  // endDate: the "as-of" date (defaults to today in server timezone)
+  let today = new Date();
   today.setHours(0, 0, 0, 0);
+  if (req.query.endDate && typeof req.query.endDate === "string") {
+    const parsed = new Date(`${req.query.endDate}T00:00:00`);
+    if (!isNaN(parsed.getTime())) today = parsed;
+  }
+  // "today" here means the selected reference date (start of day)
+  const endOfDay = new Date(today);
+  endOfDay.setHours(23, 59, 59, 999);
 
   const yesterday = new Date(today);
   yesterday.setDate(yesterday.getDate() - 1);
@@ -41,13 +47,13 @@ router.get("/admin/dashboard", requireAuth, requireAdmin, async (req, res): Prom
     db.select({ count: sql<number>`count(*)` }).from(documentsTable),
     db.select({ count: sql<number>`count(*)` }).from(emailLogsTable).where(eq(emailLogsTable.status, "sent")),
     db.select({ count: sql<number>`count(*)` }).from(emailLogsTable).where(eq(emailLogsTable.status, "failed")),
-    // today
-    db.select({ count: sql<number>`count(*)` }).from(documentsTable).where(gte(documentsTable.uploadedAt, today)),
-    db.select({ count: sql<number>`count(*)` }).from(emailLogsTable).where(and(eq(emailLogsTable.status, "sent"), gte(emailLogsTable.sentAt, today))),
-    // yesterday (for trend delta)
+    // selected date counts (today → endOfDay of selected date)
+    db.select({ count: sql<number>`count(*)` }).from(documentsTable).where(and(gte(documentsTable.uploadedAt, today), lt(documentsTable.uploadedAt, endOfDay))),
+    db.select({ count: sql<number>`count(*)` }).from(emailLogsTable).where(and(eq(emailLogsTable.status, "sent"), gte(emailLogsTable.sentAt, today), lt(emailLogsTable.sentAt, endOfDay))),
+    // previous day (for trend delta)
     db.select({ count: sql<number>`count(*)` }).from(documentsTable).where(and(gte(documentsTable.uploadedAt, yesterday), lt(documentsTable.uploadedAt, today))),
     db.select({ count: sql<number>`count(*)` }).from(emailLogsTable).where(and(eq(emailLogsTable.status, "sent"), gte(emailLogsTable.sentAt, yesterday), lt(emailLogsTable.sentAt, today))),
-    db.select({ count: sql<number>`count(*)` }).from(usersTable).where(lt(usersTable.createdAt, today)),
+    db.select({ count: sql<number>`count(*)` }).from(usersTable).where(lt(usersTable.createdAt, endOfDay)),
     // recent audit log
     db
       .select({
