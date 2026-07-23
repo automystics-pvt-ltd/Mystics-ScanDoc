@@ -1,0 +1,34 @@
+▶  Step 2/7 — Install packages
+Scope: all 10 workspace projects
+Already up to date
+Done in 1.8s using pnpm v11.16.0
+✔  Packages up to date
+▶  Step 3/7 — Push DB schema
+Reading config file '/home/automystics-docscan/htdocs/docscan.automystics.tech/repo/lib/db/drizzle.config.ts'
+Using 'pg' driver for database querying
+[⣷] Pulling schema from database...
+root@srv1609330:/home/automystics-docscan/htdocs/docscan.automystics.tech/repo# pm2 list
+pm2 logs docscan-api --lines 50
+┌────┬───────────────────────┬─────────────┬─────────┬─────────┬──────────┬────────┬──────┬───────────┬──────────┬──────────┬──────────┬──────────┐
+│ id │ name                  │ namespace   │ version │ mode    │ pid      │ uptime │ ↺    │ status    │ cpu      │ mem      │ user     │ watching │
+├────┼───────────────────────┼─────────────┼─────────┼─────────┼──────────┼────────┼──────┼───────────┼──────────┼──────────┼──────────┼──────────┤
+│ 28 │ automystics-api       │ default     │ 0.0.0   │ fork    │ 1524446  │ 11D    │ 2    │ online    │ 0%       │ 227.9mb  │ root     │ disabled │
+│ 29 │ automystics-api       │ default     │ N/A     │ fork    │ 3986637  │ 0s     │ 156… │ online    │ 55.6%    │ 67.4mb   │ root     │ disabled │
+│ 11 │ erp-automystics       │ default     │ N/A     │ fork    │ 2085506  │ 11D    │ 10   │ online    │ 0%       │ 119.6mb  │ root     │ disabled │
+│ 1  │ fitro360              │ default     │ 1.0.0   │ fork    │ 1524182  │ 11D    │ 4    │ online    │ 0%       │ 119.5mb  │ root     │ disabled │
+│ 2  │ kalvicore-api         │ default     │ 0.0.0   │ fork    │ 1524189  │ 11D    │ 4    │ online    │ 0%       │ 123.3mb  │ root     │ disabled │
+│ 13 │ mmwear-erp            │ default     │ 0.0.0   │ fork    │ 3396013  │ 46h    │ 137  │ online    │ 0%       │ 578.5mb  │ root     │ disabled │
+│ 14 │ mystics-audit         │ default     │ 0.0.0   │ fork    │ 1035800  │ 8D     │ 586  │ online    │ 0%       │ 216.2mb  │ root     │ disabled │
+│ 5  │ mysticscivil-api      │ default     │ N/A     │ fork    │ 1524242  │ 11D    │ 4    │ online    │ 0%       │ 225.2mb  │ root     │ disabled │
+│ 26 │ mysticshr-api         │ default     │ 0.0.0   │ fork    │ 852146   │ 7D     │ 14   │ online    │ 0%       │ 395.9mb  │ root     │ disabled │
+│ 12 │ mysticsinventory      │ default     │ N/A     │ fork    │ 3986617  │ 0s     │ 225… │ online    │ 27.8%    │ 70.8mb   │ root     │ disabled │
+│ 3  │ people-connect-api    │ default     │ 0.0.0   │ fork    │ 1524209  │ 11D    │ 4    │ online    │ 0%       │ 214.4mb  │ root     │ disabled │
+│ 6  │ solarnexus-api        │ default     │ 0.0.0   │ fork    │ 1524251  │ 11D    │ 4    │ online    │ 0%       │ 138.7mb  │ root     │ disabled │
+│ 4  │ tkprabhu-api          │ default     │ 0.0.0   │ fork    │ 1524217  │ 11D    │ 4    │ online    │ 0%       │ 211.9mb  │ root     │ disabled │
+│ 8  │ ungalrajeev-api       │ default     │ N/A     │ fork    │ 3986576  │ 1s     │ 894… │ online    │ 72.2%    │ 110.4mb  │ root     │ disabled │
+│ 7  │ ungaludan-sarath      │ default     │ 0.0.0   │ fork    │ 1524287  │ 11D    │ 4    │ online    │ 0%       │ 213.1mb  │ root     │ disabled │
+│ 9  │ ungalvignesh-api      │ default     │ N/A     │ fork    │ 3986398  │ 3s     │ 224… │ online    │ 0%       │ 116.9mb  │ root     │ disabled │
+│ 10 │ ungalvignesh-api      │ default     │ N/A     │ fork    │ 1524307  │ 11D    │ 199… │ online    │ 0%       │ 114.8mb  │ root     │ disabled │
+└────┴───────────────────────┴─────────────┴─────────┴─────────┴──────────┴────────┴──────┴───────────┴──────────┴──────────┴──────────┴──────────┘
+host metrics | cpu: 99.7% | ram usage: 39.6% | lo: ⇓ 0.036mb/s ⇑ 0.036mb/s | eth0: ⇓ 0.003mb/s ⇑ 0.007mb/s | disk: ⇓ 0mb/s ⇑ 0.131mb/s |
+[TAILING] Tailing last 50 lines for [docscan-api] process (change the value with --lines option)
