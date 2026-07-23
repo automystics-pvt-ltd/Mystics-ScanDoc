@@ -1,0 +1,44 @@
+root@srv1609330:/home/automystics-docscan/app# cd /home/automystics-docscan/app
+git pull origin main
+pnpm --filter @workspace/api-server run build
+pnpm --filter @workspace/docscan run build
+pm2 restart docscan-api
+# copy artifacts/docscan/dist/ to static files folder
+error: cannot pull with rebase: You have unstaged changes.
+error: Please commit or stash them.
+
+> @workspace/api-server@0.0.0 build /home/automystics-docscan/app/artifacts/api-server
+> node ./build.mjs
+
+
+  dist/index.mjs                       2.9mb ⚠️
+  dist/pino-worker.mjs               153.4kb
+  dist/pino-file.mjs                 142.1kb
+  dist/pino-pretty.mjs               114.4kb
+  dist/thread-stream-worker.mjs        7.3kb
+  dist/index.mjs.map                   5.0mb
+  dist/pino-worker.mjs.map           256.9kb
+  dist/pino-file.mjs.map             229.1kb
+  dist/pino-pretty.mjs.map           203.6kb
+  dist/thread-stream-worker.mjs.map   12.0kb
+
+⚡ Done in 1833ms
+
+> @workspace/docscan@0.0.0 build /home/automystics-docscan/app/artifacts/docscan
+> vite build --config vite.config.ts
+
+failed to load config from /home/automystics-docscan/app/artifacts/docscan/vite.config.ts
+error during build:
+Error: PORT environment variable is required but was not provided.
+    at file:///home/automystics-docscan/app/artifacts/docscan/node_modules/.vite-temp/vite.config.ts.timestamp-1784810931436-10434d577fb6e.mjs:10:9
+    at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+    at async node:internal/modules/esm/loader:633:26
+    at async loadConfigFromBundledFile (file:///home/automystics-docscan/app/node_modules/.pnpm/vite@7.3.6_@types+node@25.9.5_jiti@2.7.0_lightningcss@1.32.0_terser@5.49.0_tsx@4.23.1_yaml@2.9.0/node_modules/vite/dist/node/chunks/config.js:35996:12)
+    at async bundleAndLoadConfigFile (file:///home/automystics-docscan/app/node_modules/.pnpm/vite@7.3.6_@types+node@25.9.5_jiti@2.7.0_lightningcss@1.32.0_terser@5.49.0_tsx@4.23.1_yaml@2.9.0/node_modules/vite/dist/node/chunks/config.js:35884:17)
+    at async loadConfigFromFile (file:///home/automystics-docscan/app/node_modules/.pnpm/vite@7.3.6_@types+node@25.9.5_jiti@2.7.0_lightningcss@1.32.0_terser@5.49.0_tsx@4.23.1_yaml@2.9.0/node_modules/vite/dist/node/chunks/config.js:35851:42)
+    at async resolveConfig (file:///home/automystics-docscan/app/node_modules/.pnpm/vite@7.3.6_@types+node@25.9.5_jiti@2.7.0_lightningcss@1.32.0_terser@5.49.0_tsx@4.23.1_yaml@2.9.0/node_modules/vite/dist/node/chunks/config.js:35500:22)
+    at async createBuilder (file:///home/automystics-docscan/app/node_modules/.pnpm/vite@7.3.6_@types+node@25.9.5_jiti@2.7.0_lightningcss@1.32.0_terser@5.49.0_tsx@4.23.1_yaml@2.9.0/node_modules/vite/dist/node/chunks/config.js:33955:19)
+    at async CAC.<anonymous> (file:///home/automystics-docscan/app/node_modules/.pnpm/vite@7.3.6_@types+node@25.9.5_jiti@2.7.0_lightningcss@1.32.0_terser@5.49.0_tsx@4.23.1_yaml@2.9.0/node_modules/vite/dist/node/cli.js:629:10)
+/home/automystics-docscan/app/artifacts/docscan:
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @workspace/docscan@0.0.0 build: `vite build --config vite.config.ts`
+Exit status 1
