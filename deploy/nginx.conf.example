@@ -30,9 +30,34 @@ server {
     root  /home/automystics-docscan/htdocs/docscan.automystics.tech;
     index index.html;
 
-    # ── API — proxy to Node.js (PM2 on port 3001) ─────────────────────────
+    # ── API — proxy to Node.js (PM2 on port 3010) ─────────────────────────
     location /api/ {
-        proxy_pass         http://127.0.0.1:3001;
+        # ── CORS ────────────────────────────────────────────────────────────
+        # nginx owns all CORS headers here. proxy_hide_header ensures Express
+        # headers don't duplicate them. This survives any upstream changes.
+
+        # Answer preflight (OPTIONS) immediately — never forwards to Express
+        if ($request_method = OPTIONS) {
+            add_header Access-Control-Allow-Origin      $http_origin always;
+            add_header Access-Control-Allow-Credentials true         always;
+            add_header Access-Control-Allow-Methods     "GET, POST, PUT, PATCH, DELETE, OPTIONS" always;
+            add_header Access-Control-Allow-Headers     "Authorization, Content-Type, X-Requested-With" always;
+            add_header Access-Control-Max-Age           86400        always;
+            add_header Content-Length                   0;
+            return 204;
+        }
+
+        # Inject CORS on every real response
+        add_header Access-Control-Allow-Origin      $http_origin always;
+        add_header Access-Control-Allow-Credentials true         always;
+        add_header Vary                             Origin       always;
+
+        # Strip any CORS headers already set by Express so they don't duplicate
+        proxy_hide_header Access-Control-Allow-Origin;
+        proxy_hide_header Access-Control-Allow-Credentials;
+        proxy_hide_header Vary;
+
+        proxy_pass         http://127.0.0.1:3010;
         proxy_http_version 1.1;
         proxy_set_header   Upgrade $http_upgrade;
         proxy_set_header   Connection 'upgrade';
