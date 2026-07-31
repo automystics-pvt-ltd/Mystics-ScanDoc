@@ -42,11 +42,8 @@ export default function Login() {
     loginMutation.mutate({ data: values }, {
       onSuccess: (res) => {
         login(res.token, res.user);
-        if (res.user.role === 'admin') {
-          setLocation('/dashboard');
-        } else {
-          setLocation('/upload');
-        }
+        // All users land on Physical Scanner first; admin can navigate to dashboard from sidebar
+        setLocation('/upload');
       },
       onError: (error) => {
         toast({

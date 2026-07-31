@@ -46,13 +46,6 @@ export function AuthGuard({
     }
   }, [user, requireAdmin, setLocation]);
 
-  // Admin on a user-only route → redirect to dashboard
-  useEffect(() => {
-    if (user && !requireAdmin && user.role === 'admin') {
-      setLocation('/dashboard');
-    }
-  }, [user, requireAdmin, setLocation]);
-
   const isLoading = (!!token && !user) || meLoading;
 
   if (isLoading) {
@@ -64,8 +57,8 @@ export function AuthGuard({
   }
 
   if (!user) return null;
+  // Only block non-admins from admin-only routes; admins can access everything
   if (requireAdmin && user.role !== 'admin') return null;
-  if (!requireAdmin && user.role === 'admin') return null;
 
   return <>{children}</>;
 }

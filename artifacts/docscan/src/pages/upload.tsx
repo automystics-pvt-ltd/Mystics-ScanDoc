@@ -119,13 +119,17 @@ export default function Upload() {
   const [watchPath,    setWatchPath]    = useState('');
   const [lastRefresh,  setLastRefresh]  = useState<Date | null>(null);
 
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pollRef     = useRef<ReturnType<typeof setInterval> | null>(null);
+  // Keep a stable ref to the latest fetchDocs so the poll interval never
+  // needs to be recreated when filters change (avoids stale closures).
+  const fetchDocsCb = useRef<(p: number, silent?: boolean) => Promise<void>>(async () => {});
 
   // ── fetch ───────────────────────────────────────────────────────────────────
   const fetchDocs = useCallback(async (p: number, silent = false) => {
     if (!silent) setLoading(true);
     try {
       const token  = localStorage.getItem('docscan_token') ?? '';
+      if (!token) return;                       // not logged in — skip silently
       const params = new URLSearchParams({ page: String(p), pageSize: String(PAGE_SIZE), status: statusFilter });
       const from   = fromDate(dateRange);
       if (from) params.set('from', from);
@@ -148,14 +152,20 @@ export default function Upload() {
     finally { if (!silent) setLoading(false); }
   }, [statusFilter, dateRange]);
 
-  useEffect(() => { fetchDocs(page); }, [page, statusFilter, dateRange, fetchDocs]);
+  // Keep the ref current so the poll always calls the latest version
+  useEffect(() => { fetchDocsCb.current = fetchDocs; }, [fetchDocs]);
+
+  // Fetch whenever page or fetchDocs (filters) changes — fetchDocs already
+  // captures statusFilter/dateRange so we don't need them as extra deps.
+  useEffect(() => { fetchDocs(page); }, [page, fetchDocs]);
   useEffect(() => { setPage(1); }, [statusFilter, dateRange, search]);
 
+  // Stable 8-second poll — only restart when page changes, not on every filter change
   useEffect(() => {
     if (pollRef.current) clearInterval(pollRef.current);
-    pollRef.current = setInterval(() => fetchDocs(page, true), 8_000);
+    pollRef.current = setInterval(() => fetchDocsCb.current(page, true), 8_000);
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
-  }, [fetchDocs, page]);
+  }, [page]);
 
   useEffect(() => {
     const token = localStorage.getItem('docscan_token') ?? '';

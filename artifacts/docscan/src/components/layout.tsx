@@ -123,22 +123,27 @@ export function Layout({ children }: { children: React.ReactNode }) {
     );
   };
 
-  const adminNav = [
-    { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { href: '/admin/users', label: 'Users', icon: Users },
-    { href: '/admin/documents', label: 'Documents', icon: Files },
+  // Admin sees everything: workspace tools at top, admin tools below
+  const adminWorkspaceNav = [
+    { href: '/upload',  label: 'Physical Scanner', icon: UploadCloud },
+    { href: '/history', label: 'History',          icon: History },
+  ];
+  const adminAdminNav = [
+    { href: '/dashboard',        label: 'Dashboard',  icon: LayoutDashboard },
+    { href: '/admin/users',      label: 'Users',      icon: Users },
+    { href: '/admin/documents',  label: 'Documents',  icon: Files },
     { href: '/admin/email-logs', label: 'Email Logs', icon: Mail },
     { href: '/admin/recipients', label: 'Recipients', icon: ContactRound },
-    { href: '/admin/audit-logs', label: 'Audit Log', icon: ShieldAlert },
-    { href: '/admin/settings', label: 'Settings', icon: Settings },
+    { href: '/admin/audit-logs', label: 'Audit Log',  icon: ShieldAlert },
+    { href: '/admin/settings',   label: 'Settings',   icon: Settings },
   ];
 
   const userNav = [
-    { href: '/upload', label: 'Scan & Send', icon: UploadCloud },
-    { href: '/history', label: 'History', icon: History },
+    { href: '/upload',  label: 'Physical Scanner', icon: UploadCloud },
+    { href: '/history', label: 'History',          icon: History },
   ];
 
-  const navItems = user?.role === 'admin' ? adminNav : userNav;
+  const isAdmin = user?.role === 'admin';
 
   // ── Nav content (desktop sidebar) ───────────────────────────────────────
   const DesktopNav = () => (
@@ -186,47 +191,53 @@ export function Layout({ children }: { children: React.ReactNode }) {
       )}
 
       {/* Nav links */}
-      <div className={cn('flex-1 py-6 space-y-8 overflow-y-auto custom-scrollbar transition-all duration-300', collapsed ? 'px-2' : 'px-4')}>
-        <div className="space-y-1">
-          {!collapsed && (
-            <div className="px-2 pb-2 text-xs font-semibold text-sidebar-foreground/40 uppercase tracking-widest">
-              {user?.role === 'admin' ? 'Administration' : 'Workspace'}
-            </div>
-          )}
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            const isActive = location === item.href || location.startsWith(`${item.href}/`);
-            const link = (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={cn(
-                  'group flex items-center gap-3 rounded text-sm font-medium transition-colors relative',
-                  collapsed ? 'justify-center p-2.5' : 'px-3 py-2',
-                  isActive
-                    ? 'text-sidebar-foreground bg-sidebar-accent'
-                    : 'text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground'
-                )}
-              >
-                {isActive && (
-                  <motion.div
-                    layoutId="activeNavIndicator"
-                    className="absolute left-0 top-0 bottom-0 w-1 bg-primary rounded-r"
-                  />
-                )}
-                <Icon className={cn('w-4 h-4 shrink-0', isActive ? 'text-primary' : 'group-hover:text-sidebar-foreground')} />
-                {!collapsed && <span>{item.label}</span>}
-              </Link>
-            );
-
-            return collapsed ? (
-              <Tooltip key={item.href}>
-                <TooltipTrigger asChild>{link}</TooltipTrigger>
-                <TooltipContent side="right" className="font-medium">{item.label}</TooltipContent>
-              </Tooltip>
-            ) : link;
-          })}
-        </div>
+      <div className={cn('flex-1 py-6 space-y-6 overflow-y-auto custom-scrollbar transition-all duration-300', collapsed ? 'px-2' : 'px-4')}>
+        {(isAdmin ? [
+          { label: 'Workspace',      items: adminWorkspaceNav },
+          { label: 'Administration', items: adminAdminNav },
+        ] : [
+          { label: 'Workspace', items: userNav },
+        ]).map((section) => (
+          <div key={section.label} className="space-y-1">
+            {!collapsed && (
+              <div className="px-2 pb-2 text-xs font-semibold text-sidebar-foreground/40 uppercase tracking-widest">
+                {section.label}
+              </div>
+            )}
+            {section.items.map((item) => {
+              const Icon = item.icon;
+              const isActive = location === item.href || location.startsWith(`${item.href}/`);
+              const link = (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={cn(
+                    'group flex items-center gap-3 rounded text-sm font-medium transition-colors relative',
+                    collapsed ? 'justify-center p-2.5' : 'px-3 py-2',
+                    isActive
+                      ? 'text-sidebar-foreground bg-sidebar-accent'
+                      : 'text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground'
+                  )}
+                >
+                  {isActive && (
+                    <motion.div
+                      layoutId="activeNavIndicator"
+                      className="absolute left-0 top-0 bottom-0 w-1 bg-primary rounded-r"
+                    />
+                  )}
+                  <Icon className={cn('w-4 h-4 shrink-0', isActive ? 'text-primary' : 'group-hover:text-sidebar-foreground')} />
+                  {!collapsed && <span>{item.label}</span>}
+                </Link>
+              );
+              return collapsed ? (
+                <Tooltip key={item.href}>
+                  <TooltipTrigger asChild>{link}</TooltipTrigger>
+                  <TooltipContent side="right" className="font-medium">{item.label}</TooltipContent>
+                </Tooltip>
+              ) : link;
+            })}
+          </div>
+        ))}
       </div>
 
       {/* User section */}
@@ -298,33 +309,40 @@ export function Layout({ children }: { children: React.ReactNode }) {
         </div>
       </div>
 
-      <div className="flex-1 py-6 px-4 space-y-8 overflow-y-auto custom-scrollbar">
-        <div className="space-y-1">
-          <div className="px-2 pb-2 text-xs font-semibold text-sidebar-foreground/40 uppercase tracking-widest">
-            {user?.role === 'admin' ? 'Administration' : 'Workspace'}
+      <div className="flex-1 py-6 px-4 space-y-6 overflow-y-auto custom-scrollbar">
+        {(isAdmin ? [
+          { label: 'Workspace',      items: adminWorkspaceNav },
+          { label: 'Administration', items: adminAdminNav },
+        ] : [
+          { label: 'Workspace', items: userNav },
+        ]).map((section) => (
+          <div key={section.label} className="space-y-1">
+            <div className="px-2 pb-2 text-xs font-semibold text-sidebar-foreground/40 uppercase tracking-widest">
+              {section.label}
+            </div>
+            {section.items.map((item) => {
+              const Icon = item.icon;
+              const isActive = location === item.href || location.startsWith(`${item.href}/`);
+              return (
+                <Link key={item.href} href={item.href}
+                  className={cn(
+                    'group flex items-center gap-3 px-3 py-2 rounded text-sm font-medium transition-colors relative',
+                    isActive
+                      ? 'text-sidebar-foreground bg-sidebar-accent'
+                      : 'text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground'
+                  )}
+                >
+                  {isActive && (
+                    <motion.div layoutId="activeMobileNavIndicator"
+                      className="absolute left-0 top-0 bottom-0 w-1 bg-primary rounded-r" />
+                  )}
+                  <Icon className={cn('w-4 h-4 shrink-0', isActive ? 'text-primary' : '')} />
+                  <span>{item.label}</span>
+                </Link>
+              );
+            })}
           </div>
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            const isActive = location === item.href || location.startsWith(`${item.href}/`);
-            return (
-              <Link key={item.href} href={item.href}
-                className={cn(
-                  'group flex items-center gap-3 px-3 py-2 rounded text-sm font-medium transition-colors relative',
-                  isActive
-                    ? 'text-sidebar-foreground bg-sidebar-accent'
-                    : 'text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground'
-                )}
-              >
-                {isActive && (
-                  <motion.div layoutId="activeMobileNavIndicator"
-                    className="absolute left-0 top-0 bottom-0 w-1 bg-primary rounded-r" />
-                )}
-                <Icon className={cn('w-4 h-4 shrink-0', isActive ? 'text-primary' : '')} />
-                <span>{item.label}</span>
-              </Link>
-            );
-          })}
-        </div>
+        ))}
       </div>
 
       <div className="p-4 border-t border-sidebar-border/50">
