@@ -869,8 +869,6 @@ export default function Settings() {
               {/* ════ SCANNER ══════════════════════════════════════════ */}
               {section === 'scanner' && (
                 <div className="space-y-6">
-                  <ScanToUrlCard />
-
                   <div>
                     <SHead>Folder & Dispatch</SHead>
 
