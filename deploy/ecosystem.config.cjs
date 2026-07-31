@@ -7,7 +7,7 @@ module.exports = {
   apps: [
     {
       name: "docscan-api",
-      script: "./api-server/dist/index.mjs",
+      script: "./artifacts/api-server/dist/index.mjs",
       cwd: "/home/automystics-docscan/app",
       instances: 1,
       exec_mode: "fork",
@@ -17,7 +17,7 @@ module.exports = {
 
       env: {
         NODE_ENV: "production",
-        PORT: "3001",
+        PORT: "3010",
       },
 
       // Load environment variables from .env file
