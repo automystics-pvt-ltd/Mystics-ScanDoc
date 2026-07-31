@@ -89,7 +89,7 @@ export default function Upload() {
   const [watchPath,    setWatchPath]    = useState('');
 
   const pollRef  = useRef<ReturnType<typeof setInterval> | null>(null);
-  const PAGE_SIZE = 20;
+  const PAGE_SIZE = 10;
 
   // ── fetch ───────────────────────────────────────────────────────────────────
   const fetchDocs = useCallback(async (p: number, silent = false) => {
