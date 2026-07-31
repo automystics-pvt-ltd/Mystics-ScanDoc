@@ -35,6 +35,27 @@ const SETTINGS_POLL_MS = 30_000;
 let watcher: FSWatcher | null = null;
 let currentWatchPath = "";
 let systemUserId: number | null = null;
+let lastFileAt: Date | null = null;
+let filesIngested = 0;
+
+export type WatcherStatus = {
+  running: boolean;
+  watchPath: string;
+  pathExists: boolean;
+  lastFileAt: string | null;
+  filesIngested: number;
+};
+
+export function getWatcherStatus(): WatcherStatus {
+  const p = currentWatchPath;
+  return {
+    running:       watcher !== null,
+    watchPath:     p,
+    pathExists:    p ? fs.existsSync(p) : false,
+    lastFileAt:    lastFileAt ? lastFileAt.toISOString() : null,
+    filesIngested,
+  };
+}
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -115,6 +136,8 @@ async function ingestFile(filePath: string): Promise<void> {
     sourcePath: filePath,
   }).returning();
 
+  lastFileAt = new Date();
+  filesIngested += 1;
   logger.info({ docId: doc.id, file: doc.fileName }, "Scanner watcher: file ingested");
 
   await db.insert(auditLogsTable).values({

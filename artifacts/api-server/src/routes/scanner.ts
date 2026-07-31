@@ -16,6 +16,7 @@ import { db, settingsTable, documentsTable, auditLogsTable, usersTable } from "@
 import { requireAuth, requireAdmin } from "../middlewares/auth";
 import { logger } from "../lib/logger";
 import { scannerBus } from "../lib/scanner-events";
+import { getWatcherStatus } from "../lib/scanner-watcher";
 
 const router: IRouter = Router();
 
@@ -172,6 +173,11 @@ router.get("/scanner/config", requireAuth, async (_req: Request, res: Response):
     scannerWatchPath: s?.scannerWatchPath ?? null,
     scannerAutoDispatch: s?.scannerAutoDispatch ?? false,
   });
+});
+
+// ── GET /scanner/watcher-status — live watcher diagnostics
+router.get("/scanner/watcher-status", requireAuth, (_req: Request, res: Response): void => {
+  res.json(getWatcherStatus());
 });
 
 // ── GET /scanner/bridge-script — download the Windows bridge script ────────────

@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { format } from 'date-fns';
+import { format, formatDistanceToNow } from 'date-fns';
 import {
   Send, Loader2, CheckCircle2, XCircle, Clock,
   Printer, RefreshCw, Search, FileText, AlertCircle,
+  WifiOff, FolderX, Activity,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -43,6 +44,14 @@ type PageResult = {
 type DateRange    = 'all' | 'today' | 'week' | 'month';
 type StatusFilter = 'all' | 'queued' | 'pending' | 'sent' | 'failed';
 
+type WatcherStatus = {
+  running: boolean;
+  watchPath: string;
+  pathExists: boolean;
+  lastFileAt: string | null;
+  filesIngested: number;
+};
+
 const PAGE_SIZE = 10;
 
 // ── helpers ───────────────────────────────────────────────────────────────────
@@ -76,6 +85,56 @@ function StatusBadge({ status }: { status: string }) {
     <span className={cn('inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border whitespace-nowrap', cfg.cls)}>
       {cfg.icon}{cfg.label}
     </span>
+  );
+}
+
+// ── watcher status banner ─────────────────────────────────────────────────────
+function WatcherBanner({ status }: { status: WatcherStatus }) {
+  if (!status.watchPath) {
+    return (
+      <div className="flex items-center gap-3 px-4 py-3 rounded-lg border border-amber-200 bg-amber-50 text-amber-800 text-sm">
+        <FolderX className="w-4 h-4 shrink-0" />
+        <span><strong>No watch folder configured.</strong> Go to Admin → Settings → Scanner and set the folder path.</span>
+      </div>
+    );
+  }
+  if (!status.pathExists) {
+    return (
+      <div className="flex items-center gap-3 px-4 py-3 rounded-lg border border-red-200 bg-red-50 text-red-800 text-sm">
+        <FolderX className="w-4 h-4 shrink-0" />
+        <div className="min-w-0">
+          <strong>Watch folder not found on this server.</strong>
+          <span className="font-mono ml-1 opacity-80 break-all">{status.watchPath}</span>
+          <p className="text-xs mt-0.5 opacity-70">The server cannot see this path. Verify the folder exists and the API server is running on the same machine as the scanner.</p>
+        </div>
+      </div>
+    );
+  }
+  if (!status.running) {
+    return (
+      <div className="flex items-center gap-3 px-4 py-3 rounded-lg border border-red-200 bg-red-50 text-red-800 text-sm">
+        <WifiOff className="w-4 h-4 shrink-0" />
+        <span><strong>Watcher stopped.</strong> The folder exists but the watcher is not running. Restart the API server.</span>
+      </div>
+    );
+  }
+  return (
+    <div className="flex items-center gap-3 px-4 py-3 rounded-lg border border-green-200 bg-green-50 text-green-800 text-sm">
+      <span className="relative flex h-2.5 w-2.5 shrink-0">
+        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500" />
+      </span>
+      <span>
+        <strong>Watcher active</strong> — watching <span className="font-mono">{status.watchPath}</span>
+        {status.filesIngested > 0 && (
+          <> · {status.filesIngested} file{status.filesIngested !== 1 ? 's' : ''} ingested
+          {status.lastFileAt && <> · last {formatDistanceToNow(new Date(status.lastFileAt), { addSuffix: true })}</>}
+          </>
+        )}
+        {status.filesIngested === 0 && <> · no files picked up yet (waiting for scanner)</>}
+      </span>
+      <Activity className="w-4 h-4 ml-auto shrink-0 opacity-50" />
+    </div>
   );
 }
 
@@ -116,8 +175,9 @@ export default function Upload() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [dateRange,    setDateRange]    = useState<DateRange>('all');
   const [search,       setSearch]       = useState('');
-  const [watchPath,    setWatchPath]    = useState('');
-  const [lastRefresh,  setLastRefresh]  = useState<Date | null>(null);
+  const [watchPath,      setWatchPath]      = useState('');
+  const [lastRefresh,    setLastRefresh]    = useState<Date | null>(null);
+  const [watcherStatus,  setWatcherStatus]  = useState<WatcherStatus | null>(null);
 
   const pollRef     = useRef<ReturnType<typeof setInterval> | null>(null);
   // Keep a stable ref to the latest fetchDocs so the poll interval never
@@ -167,13 +227,28 @@ export default function Upload() {
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
   }, [page]);
 
-  useEffect(() => {
+  // Fetch scanner config + watcher status (on mount and every 15s)
+  const fetchWatcherStatus = useCallback(async () => {
     const token = localStorage.getItem('docscan_token') ?? '';
-    fetch(`${import.meta.env.BASE_URL}api/scanner/config`, { headers: { Authorization: `Bearer ${token}` } })
-      .then((r) => r.ok ? r.json() : null)
-      .then((d) => { if (d?.scannerWatchPath) setWatchPath(d.scannerWatchPath); })
-      .catch(() => {});
+    if (!token) return;
+    try {
+      const [cfgRes, statusRes] = await Promise.all([
+        fetch(`${import.meta.env.BASE_URL}api/scanner/config`,         { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`${import.meta.env.BASE_URL}api/scanner/watcher-status`, { headers: { Authorization: `Bearer ${token}` } }),
+      ]);
+      if (cfgRes.ok) {
+        const d = await cfgRes.json();
+        if (d?.scannerWatchPath) setWatchPath(d.scannerWatchPath);
+      }
+      if (statusRes.ok) setWatcherStatus(await statusRes.json());
+    } catch {}
   }, []);
+
+  useEffect(() => {
+    fetchWatcherStatus();
+    const id = setInterval(fetchWatcherStatus, 15_000);
+    return () => clearInterval(id);
+  }, [fetchWatcherStatus]);
 
   // ── client-side filename search ───────────────────────────────────────────
   const visible = search.trim()
@@ -213,7 +288,7 @@ export default function Upload() {
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Physical Scanner</h1>
-          <p className="text-sm text-muted-foreground mt-0.5 font-mono">
+          <p className="text-sm text-muted-foreground mt-0.5 font-mono truncate max-w-lg">
             {watchPath || 'Configure watch folder in Admin → Settings → Scanner'}
           </p>
         </div>
@@ -228,6 +303,9 @@ export default function Upload() {
           </Button>
         </div>
       </div>
+
+      {/* ── watcher status banner ── */}
+      {watcherStatus && <WatcherBanner status={watcherStatus} />}
 
       {/* ── stat cards ── */}
       <div className="flex gap-3">
