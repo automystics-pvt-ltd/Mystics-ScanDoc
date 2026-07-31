@@ -103,9 +103,15 @@ else
   warn "Unexpected HTTP $HTTP_CODE — check: pm2 logs docscan-api"
 fi
 
-# ── 10. Reload nginx ──────────────────────────────────────────────────────────
-step "Reloading nginx"
-nginx -t && systemctl reload nginx
+# ── 10. Install updated nginx config and reload ───────────────────────────────
+step "Updating nginx config"
+NGINX_CONF="/etc/nginx/sites-available/docscan.automystics.tech"
+cp "$APP_DIR/deploy/nginx.conf.example" "$NGINX_CONF"
+ok "Nginx config updated: $NGINX_CONF"
+
+step "Testing and reloading nginx"
+nginx -t || fail "nginx config test failed — check: nginx -t"
+systemctl reload nginx
 ok "nginx reloaded"
 
 echo ""
