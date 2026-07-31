@@ -47,24 +47,43 @@ mkdir -p "$HTDOCS"
 rsync -a --delete artifacts/docscan/dist/public/ "$HTDOCS/"
 ok "Frontend deployed"
 
-# ── 6. Completely clear port $PORT ───────────────────────────────────────────
-step "Clearing port $PORT — killing every process on it"
-# Kill via fuser (most reliable)
-if command -v fuser &>/dev/null; then
-  fuser -k "${PORT}/tcp" 2>/dev/null && echo "  fuser: killed processes on $PORT" || true
+# ── 6. Stop whatever systemd service owns port $PORT, then clear the port ─────
+step "Identifying and stopping service on port $PORT"
+
+# Get PID(s) currently on the port
+PORT_PIDS=$(fuser "${PORT}/tcp" 2>/dev/null || true)
+
+if [[ -n "$PORT_PIDS" ]]; then
+  echo "  PIDs on port $PORT: $PORT_PIDS"
+
+  for PID in $PORT_PIDS; do
+    # Find the systemd service that owns this PID
+    SERVICE_NAME=$(systemctl status "$PID" 2>/dev/null \
+      | awk '/Loaded:/{gsub(/[();]/," "); print $2}' | head -1 || true)
+
+    if [[ -n "$SERVICE_NAME" && "$SERVICE_NAME" != "not-found" ]]; then
+      echo "  Stopping systemd service: $SERVICE_NAME"
+      systemctl stop    "$SERVICE_NAME" 2>/dev/null || true
+      systemctl disable "$SERVICE_NAME" 2>/dev/null || true
+      echo "  Disabled $SERVICE_NAME so it won't restart on reboot"
+    fi
+
+    # Also check /proc for the command name (fallback identification)
+    CMD=$(cat /proc/"$PID"/cmdline 2>/dev/null | tr '\0' ' ' | cut -c1-120 || true)
+    echo "  Process $PID command: $CMD"
+
+    # Kill it directly with SIGKILL
+    kill -9 "$PID" 2>/dev/null || true
+  done
+
+  sleep 2
 fi
-# Kill via lsof as fallback
-if command -v lsof &>/dev/null; then
-  PIDS=$(lsof -ti :"$PORT" 2>/dev/null || true)
-  if [[ -n "$PIDS" ]]; then
-    echo "  lsof: killing PIDs $PIDS"
-    kill -9 $PIDS 2>/dev/null || true
-  fi
-fi
-sleep 2
-# Verify port is actually free
-if command -v fuser &>/dev/null && fuser "${PORT}/tcp" &>/dev/null 2>&1; then
-  fail "Port $PORT is still occupied after kill attempt. Check: fuser ${PORT}/tcp"
+
+# Final check — fail loudly if still occupied so the user knows what to fix
+if fuser "${PORT}/tcp" &>/dev/null 2>&1; then
+  STUCK_PID=$(fuser "${PORT}/tcp" 2>/dev/null || true)
+  STUCK_CMD=$(cat /proc/"$STUCK_PID"/cmdline 2>/dev/null | tr '\0' ' ' || true)
+  fail "Port $PORT still occupied by PID $STUCK_PID ($STUCK_CMD). Stop it manually and re-run."
 fi
 ok "Port $PORT is free"
 
