@@ -93,10 +93,19 @@ router.get("/scanner/documents", requireAuth, async (req, res): Promise<void> =>
       });
 
   // ── paginate ──────────────────────────────────────────────────────────────
+  // Stats computed across all date-filtered docs (before status filter)
+  const stats = {
+    total:   enriched.length,
+    queued:  enriched.filter((d) => d.dispatchStatus === "queued").length,
+    pending: enriched.filter((d) => d.dispatchStatus === "pending").length,
+    sent:    enriched.filter((d) => d.dispatchStatus === "sent").length,
+    failed:  enriched.filter((d) => d.dispatchStatus === "failed").length,
+  };
+
   const total = filtered.length;
   const items = filtered.slice((page - 1) * pageSize, page * pageSize);
 
-  res.json({ items, total, page, pageSize, totalPages: Math.ceil(total / pageSize) });
+  res.json({ items, total, page, pageSize, totalPages: Math.ceil(total / pageSize), stats });
 });
 
 export default router;
