@@ -123,11 +123,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
     );
   };
 
-  // Admin sees everything: workspace tools at top, admin tools below
-  const adminWorkspaceNav = [
-    { href: '/upload',  label: 'Physical Scanner', icon: UploadCloud },
-    { href: '/history', label: 'History',          icon: History },
-  ];
+  // Admin sees only administration tools in the sidebar
   const adminAdminNav = [
     { href: '/dashboard',        label: 'Dashboard',  icon: LayoutDashboard },
     { href: '/admin/users',      label: 'Users',      icon: Users },
@@ -193,7 +189,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
       {/* Nav links */}
       <div className={cn('flex-1 py-6 space-y-6 overflow-y-auto custom-scrollbar transition-all duration-300', collapsed ? 'px-2' : 'px-4')}>
         {(isAdmin ? [
-          { label: 'Workspace',      items: adminWorkspaceNav },
           { label: 'Administration', items: adminAdminNav },
         ] : [
           { label: 'Workspace', items: userNav },
@@ -311,7 +306,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
       <div className="flex-1 py-6 px-4 space-y-6 overflow-y-auto custom-scrollbar">
         {(isAdmin ? [
-          { label: 'Workspace',      items: adminWorkspaceNav },
           { label: 'Administration', items: adminAdminNav },
         ] : [
           { label: 'Workspace', items: userNav },
