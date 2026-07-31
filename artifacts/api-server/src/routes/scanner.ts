@@ -165,4 +165,13 @@ router.get("/admin/scanner/key", requireAuth, requireAdmin, async (_req: Request
   res.json({ scannerApiKey: key });
 });
 
+// ── GET /scanner/config — any authenticated user can read scanner display config
+router.get("/scanner/config", requireAuth, async (_req: Request, res: Response): Promise<void> => {
+  const [s] = await db.select().from(settingsTable).limit(1);
+  res.json({
+    scannerWatchPath: s?.scannerWatchPath ?? null,
+    scannerAutoDispatch: s?.scannerAutoDispatch ?? false,
+  });
+});
+
 export default router;

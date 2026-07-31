@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { useSendDocument, useGetSettings } from '@workspace/api-client-react';
+import { useSendDocument } from '@workspace/api-client-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 
@@ -21,11 +21,27 @@ export default function Upload() {
   const [scanSuccess, setScanSuccess] = useState(false);
   const esRef = useRef<EventSource | null>(null);
 
+  const [watchPath, setWatchPath] = useState('');
+  const [autoDispatch, setAutoDispatch] = useState(false);
+
   const { toast } = useToast();
   const sendMutation = useSendDocument();
-  const { data: settings } = useGetSettings();
-  const autoDispatch = settings?.scannerAutoDispatch ?? false;
-  const watchPath = settings?.scannerWatchPath ?? '';
+
+  // Fetch scanner config — available to all authenticated users (not admin-only)
+  useEffect(() => {
+    const token = localStorage.getItem('docscan_token') ?? '';
+    fetch(`${import.meta.env.BASE_URL}api/scanner/config`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((r) => r.ok ? r.json() : null)
+      .then((d) => {
+        if (d) {
+          setWatchPath(d.scannerWatchPath ?? '');
+          setAutoDispatch(d.scannerAutoDispatch ?? false);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   // ── SSE lifecycle ────────────────────────────────────────────────────────
   const connectSse = useCallback(() => {
@@ -85,7 +101,7 @@ export default function Upload() {
   };
 
   return (
-    <div className="max-w-2xl w-full mx-auto">
+    <div className="w-full">
       {/* Header */}
       <div className="flex items-start justify-between mb-6">
         <div>
