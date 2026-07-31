@@ -212,6 +212,27 @@ export interface Settings {
   maxFileSizeMb: number;
   /** @nullable */
   allowedFileTypes?: string | null;
+  /** @nullable */
+  scannerWatchPath?: string | null;
+  scannerAutoDispatch?: boolean;
+  /** @nullable */
+  scannerName?: string | null;
+  scannerPaperSize?: string;
+  scannerResolutionDpi?: number;
+  scannerColorMode?: string;
+  scannerFileFormat?: string;
+  scannerDuplex?: boolean;
+  scannerBrightness?: number;
+  scannerContrast?: number;
+  /** @nullable */
+  scannerApiKey?: string | null;
+  emailProvider?: string;
+  /** @nullable */
+  emailProviderApiKey?: string | null;
+  smsEnabled?: boolean;
+  whatsappEnabled?: boolean;
+  defaultNotificationChannel?: string;
+  retentionDays?: number;
 }
 
 export interface SettingsInput {
@@ -227,6 +248,16 @@ export interface SettingsInput {
   /** @minimum 1 */
   maxFileSizeMb?: number;
   allowedFileTypes?: string;
+  scannerWatchPath?: string;
+  scannerAutoDispatch?: boolean;
+  scannerName?: string;
+  scannerPaperSize?: string;
+  scannerResolutionDpi?: number;
+  scannerColorMode?: string;
+  scannerFileFormat?: string;
+  scannerDuplex?: boolean;
+  scannerBrightness?: number;
+  scannerContrast?: number;
 }
 
 export interface DashboardVolumeSeries {

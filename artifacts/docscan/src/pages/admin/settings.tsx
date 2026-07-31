@@ -49,6 +49,8 @@ const schema = z.object({
   scannerDuplex:              z.boolean().default(false),
   scannerBrightness:          z.coerce.number().min(-100).max(100).default(0),
   scannerContrast:            z.coerce.number().min(-100).max(100).default(0),
+  scannerWatchPath:           z.string().optional(),
+  scannerAutoDispatch:        z.boolean().default(false),
 });
 type SF = z.infer<typeof schema>;
 type Section = 'email' | 'notifications' | 'storage' | 'scanner';
@@ -348,6 +350,7 @@ export default function Settings() {
       defaultNotificationChannel:'email', maxRecipients:5, maxFileSizeMb:10, retentionDays:30,
       scannerName:'', scannerPaperSize:'A4', scannerResolutionDpi:300, scannerColorMode:'color',
       scannerFileFormat:'pdf', scannerDuplex:false, scannerBrightness:0, scannerContrast:0,
+      scannerWatchPath:'', scannerAutoDispatch:false,
     },
   });
 
@@ -379,6 +382,8 @@ export default function Settings() {
       scannerDuplex:              settings.scannerDuplex ?? false,
       scannerBrightness:          settings.scannerBrightness ?? 0,
       scannerContrast:            settings.scannerContrast ?? 0,
+      scannerWatchPath:           settings.scannerWatchPath ?? '',
+      scannerAutoDispatch:        settings.scannerAutoDispatch ?? false,
     });
   }, [settings, form]);
 
@@ -866,11 +871,43 @@ export default function Settings() {
                 <div className="space-y-6">
                   <ScanToUrlCard />
 
+                  {/* ── Watch Folder & Dispatch behaviour ── */}
+                  <div>
+                    <SHead>Folder & Dispatch</SHead>
+
+                    <Field label="Watch folder path" hint="Folder where HP scanner saves files (shown to users as reference)">
+                      <FormField control={form.control} name="scannerWatchPath" render={({ field }) => (
+                        <Input placeholder="e.g. C:\Users\Name\Documents\HP Scans" className="h-9 text-sm font-mono" {...field} />
+                      )} />
+                    </Field>
+
+                    <Field
+                      label="Auto-dispatch on scan"
+                      hint={form.watch('scannerAutoDispatch')
+                        ? 'Documents dispatch immediately when received — no user action needed'
+                        : 'User must click Dispatch after each scan arrives'}
+                    >
+                      <FormField control={form.control} name="scannerAutoDispatch" render={({ field }) => (
+                        <div className="flex items-center gap-3">
+                          <Switch checked={field.value} onCheckedChange={field.onChange} />
+                          <span className={cn(
+                            'text-xs font-semibold px-2 py-0.5 rounded-full',
+                            field.value
+                              ? 'bg-green-100 text-green-700 border border-green-200'
+                              : 'bg-muted text-muted-foreground border border-border',
+                          )}>
+                            {field.value ? 'Auto' : 'Manual'}
+                          </span>
+                        </div>
+                      )} />
+                    </Field>
+                  </div>
+
                   <div>
                     <SHead>Device</SHead>
                     <Field label="Scanner model" hint="Display name for this device">
                       <FormField control={form.control} name="scannerName" render={({ field }) => (
-                        <Input placeholder="e.g. Fujitsu fi-7160" className="h-9 text-sm" {...field} />
+                        <Input placeholder="e.g. HP LaserJet Pro MFP M128fn" className="h-9 text-sm" {...field} />
                       )} />
                     </Field>
                   </div>

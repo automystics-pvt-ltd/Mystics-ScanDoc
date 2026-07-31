@@ -88,6 +88,8 @@ router.put("/admin/settings", requireAuth, requireAdmin, async (req, res): Promi
   if (b.scannerDuplex !== undefined) updates.scannerDuplex = Boolean(b.scannerDuplex);
   if (b.scannerBrightness !== undefined) updates.scannerBrightness = Math.max(-100, Math.min(100, Number(b.scannerBrightness)));
   if (b.scannerContrast !== undefined) updates.scannerContrast = Math.max(-100, Math.min(100, Number(b.scannerContrast)));
+  if (b.scannerWatchPath !== undefined) updates.scannerWatchPath = b.scannerWatchPath;
+  if (b.scannerAutoDispatch !== undefined) updates.scannerAutoDispatch = Boolean(b.scannerAutoDispatch);
 
   const [updated] = await db
     .update(settingsTable)

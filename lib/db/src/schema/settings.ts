@@ -57,6 +57,10 @@ export const settingsTable = pgTable("settings", {
 
   // ── Scan-to-URL integration ───────────────────────────────────────────────
   scannerApiKey: text("scanner_api_key"),                          // auto-generated on first use
+
+  // ── Local folder watch ────────────────────────────────────────────────────
+  scannerWatchPath: text("scanner_watch_path"),                    // display-only: folder path label
+  scannerAutoDispatch: boolean("scanner_auto_dispatch").default(false), // true = send immediately on scan
 });
 
 export const insertSettingsSchema = createInsertSchema(settingsTable).omit({ id: true });

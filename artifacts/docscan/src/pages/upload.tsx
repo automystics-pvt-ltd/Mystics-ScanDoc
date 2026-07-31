@@ -2,11 +2,11 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import {
   UploadCloud, File as FileIcon, X, Send, Loader2,
   CheckCircle2, AlertCircle, Camera, RefreshCw, ScanLine, Printer, Wifi, WifiOff,
-  FolderOpen, FolderSearch, Eye,
+  FolderOpen, FolderSearch, Eye, Zap,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { useSendDocument } from '@workspace/api-client-react';
+import { useSendDocument, useGetSettings } from '@workspace/api-client-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 
@@ -53,6 +53,8 @@ export default function Upload() {
 
   const { toast } = useToast();
   const sendMutation = useSendDocument();
+  const { data: settings } = useGetSettings();
+  const autoDispatch = settings?.scannerAutoDispatch ?? false;
 
   // ── Stop camera stream ───────────────────────────────────────────────────
   const stopStream = useCallback(() => {
@@ -78,7 +80,19 @@ export default function Upload() {
         setScannedFileName(data.fileName);
         setScannerDocReady(true);
         setMode('scanner');
-        toast({ title: 'Document received', description: `Scanner delivered: ${data.fileName}` });
+        // Read auto-dispatch from DOM to avoid stale closure
+        const auto = (window as any).__docScanAutoDispatch ?? false;
+        if (auto) {
+          toast({ title: '⚡ Auto-dispatching…', description: data.fileName });
+          sendMutation.mutate({ id: data.docId }, {
+            onSuccess: () => {
+              toast({ title: '✅ Dispatched', description: `${data.fileName} sent automatically.` });
+              setScannerDocReady(false); setScannedDocId(null);
+            },
+          });
+        } else {
+          toast({ title: 'Document received', description: `Scanner delivered: ${data.fileName}` });
+        }
       } catch {}
     });
 
@@ -89,6 +103,9 @@ export default function Upload() {
     const es = connectSse();
     return () => { es.close(); };
   }, [connectSse]);
+
+  // Keep global in sync so SSE closure can read it without stale value
+  useEffect(() => { (window as any).__docScanAutoDispatch = autoDispatch; }, [autoDispatch]);
 
   useEffect(() => () => stopStream(), [stopStream]);
 
@@ -109,8 +126,15 @@ export default function Upload() {
           const f: File = await (handle as FileSystemFileHandle).getFile();
           if (f.size === 0) { seenFiles.current.delete(name); continue; }
           const id = Date.now() + Math.random();
+          const auto = (window as any).__docScanAutoDispatch ?? false;
           setPendingScans((prev) => [...prev, { id, name, file: f, sending: false, sent: false }]);
-          toast({ title: '📄 New scan detected', description: name });
+          if (auto) {
+            toast({ title: '⚡ Auto-dispatching…', description: name });
+            // slight delay so state settles
+            setTimeout(() => dispatchLocalScanById(id, name, f), 300);
+          } else {
+            toast({ title: '📄 New scan detected', description: name });
+          }
         } catch {
           seenFiles.current.delete(name);
         }
@@ -150,6 +174,35 @@ export default function Upload() {
   useEffect(() => () => { if (watchIntervalRef.current) clearInterval(watchIntervalRef.current); }, []);
 
   // ── Dispatch a locally-watched scan (upload then send) ───────────────────
+  // Can be called with an id (looks up from state) or with explicit name+file (for auto-dispatch before state settles)
+  const dispatchLocalScanById = async (id: number, name: string, file: File) => {
+    setPendingScans((prev) => prev.map((s) => s.id === id ? { ...s, sending: true } : s));
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const token = localStorage.getItem('docscan_token');
+      const res = await fetch(`${import.meta.env.BASE_URL}api/documents/upload`, {
+        method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: formData,
+      });
+      if (!res.ok) throw new Error('Upload failed');
+      const doc = await res.json();
+      sendMutation.mutate({ id: doc.id }, {
+        onSuccess: () => {
+          setPendingScans((prev) => prev.map((s) => s.id === id ? { ...s, sending: false, sent: true } : s));
+          toast({ title: '✅ Dispatched', description: `${name} sent to all recipients.` });
+          setTimeout(() => setPendingScans((prev) => prev.filter((s) => s.id !== id)), 3000);
+        },
+        onError: (err: any) => {
+          setPendingScans((prev) => prev.map((s) => s.id === id ? { ...s, sending: false } : s));
+          toast({ title: 'Dispatch Failed', description: err?.data?.error ?? 'Failed to queue.', variant: 'destructive' });
+        },
+      });
+    } catch {
+      setPendingScans((prev) => prev.map((s) => s.id === id ? { ...s, sending: false } : s));
+      toast({ title: 'Upload Error', description: 'Failed to upload file.', variant: 'destructive' });
+    }
+  };
+
   const dispatchLocalScan = async (id: number) => {
     const item = pendingScans.find((s) => s.id === id);
     if (!item) return;
