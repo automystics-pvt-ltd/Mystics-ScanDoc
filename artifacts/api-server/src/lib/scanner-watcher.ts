@@ -187,8 +187,9 @@ async function autoDispatch(
 function startWatchDir(watchPath: string): void {
   if (!watchPath) return;
   if (!fs.existsSync(watchPath)) {
-    logger.warn({ watchPath }, "Scanner watcher: path does not exist (will retry when settings change)");
-    currentWatchPath = watchPath;
+    // Do NOT set currentWatchPath here — leave it empty so the next
+    // 30-second poll retries automatically when the folder appears.
+    logger.warn({ watchPath }, "Scanner watcher: path does not exist (will retry in 30 s)");
     return;
   }
 
@@ -208,6 +209,13 @@ function startWatchDir(watchPath: string): void {
     );
   });
 
+  watcher.on("error", (err) => {
+    logger.error({ err, watchPath }, "Scanner watcher: chokidar error — will retry");
+    watcher?.close().catch(() => {});
+    watcher = null;
+    currentWatchPath = "";
+  });
+
   currentWatchPath = watchPath;
   logger.info({ watchPath }, "Scanner watcher: started");
 }
@@ -218,16 +226,19 @@ async function checkSettings(): Promise<void> {
   }).from(settingsTable).limit(1);
 
   const newPath = settings?.scannerWatchPath ?? "";
-  if (newPath === currentWatchPath) return;
 
-  if (watcher) {
+  // Stop the old watcher when the path has changed
+  if (watcher && newPath !== currentWatchPath) {
     await watcher.close();
     watcher = null;
+    currentWatchPath = "";
     logger.info("Scanner watcher: stopped (path changed)");
   }
 
-  currentWatchPath = newPath;
-  if (newPath) startWatchDir(newPath);
+  // Start (or retry) whenever we have a path but no active watcher
+  if (newPath && !watcher) {
+    startWatchDir(newPath);
+  }
 }
 
 export async function startScannerWatcher(): Promise<void> {
