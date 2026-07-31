@@ -174,4 +174,22 @@ router.get("/scanner/config", requireAuth, async (_req: Request, res: Response):
   });
 });
 
+// ── GET /scanner/bridge-script — download the Windows bridge script ────────────
+router.get("/scanner/bridge-script", requireAuth, async (req: Request, res: Response): Promise<void> => {
+  // Resolve path relative to monorepo root (two levels above api-server cwd)
+  const candidates = [
+    path.join(process.cwd(), "../../deploy/scanner-bridge.mjs"),
+    path.join(process.cwd(), "../../../deploy/scanner-bridge.mjs"),
+    path.join(process.cwd(), "deploy/scanner-bridge.mjs"),
+  ];
+  const scriptPath = candidates.find((p) => fs.existsSync(p));
+  if (!scriptPath) {
+    res.status(404).json({ error: "Bridge script not found on server" });
+    return;
+  }
+  res.setHeader("Content-Disposition", 'attachment; filename="scanner-bridge.mjs"');
+  res.setHeader("Content-Type", "text/javascript");
+  res.sendFile(path.resolve(scriptPath));
+});
+
 export default router;

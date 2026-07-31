@@ -54,18 +54,24 @@ router.post("/documents/upload", requireAuth, upload.single("file"), async (req,
     return;
   }
 
+  // Allow the Windows bridge script to mark uploads as scanner-sourced
+  const isScanner  = req.headers["x-source"] === "scanner";
+  const sourcePath = isScanner ? String(req.headers["x-source-path"] ?? "") : undefined;
+
   const [doc] = await db.insert(documentsTable).values({
     userId: req.user!.id,
     fileName: req.file.originalname,
     filePath: req.file.path,
     fileType: req.file.mimetype,
     fileSize: req.file.size,
+    source:     isScanner ? "scanner" : "upload",
+    sourcePath: sourcePath || null,
   }).returning();
 
   await db.insert(auditLogsTable).values({
     action: "document_upload",
     userId: req.user!.id,
-    details: `Uploaded document: ${req.file.originalname}`,
+    details: `${isScanner ? "Scanner bridge" : "Uploaded"} document: ${req.file.originalname}`,
     ipAddress: req.ip,
   });
 
