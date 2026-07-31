@@ -226,7 +226,7 @@ export default function Upload() {
             )}
           >
             <Icon className="w-4 h-4" /> {label}
-            {id === 'scanner' && (scannerDocReady || hasPending) && mode !== 'scanner' && (
+            {id === 'scanner' && scannerDocReady && mode !== 'scanner' && (
               <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-green-500 border-2 border-background animate-pulse" />
             )}
           </button>
