@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Send, Loader2, CheckCircle2, XCircle, Clock,
   Printer, RefreshCw, ChevronLeft, ChevronRight, Filter,
-  Download, AlertCircle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
@@ -75,36 +74,6 @@ function StatusBadge({ status }: { status: DispatchStatus | '_dispatching' }) {
   );
 }
 
-// ── bridge setup card ─────────────────────────────────────────────────────────
-function BridgeSetupCard({ watchPath }: { watchPath: string }) {
-  const bridgeUrl = `${import.meta.env.BASE_URL}api/scanner/bridge-script`;
-  return (
-    <div className="border border-amber-200 bg-amber-50/60 rounded-xl p-5 flex flex-col gap-3">
-      <div className="flex items-start gap-3">
-        <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
-        <div>
-          <p className="font-semibold text-sm text-amber-900">Windows Bridge script required</p>
-          <p className="text-xs text-amber-700 mt-0.5 leading-relaxed">
-            The scanner saves files to <span className="font-mono bg-amber-100 px-1 rounded">{watchPath || 'your Windows folder'}</span> on your PC.
-            Run the bridge script on that PC once — it watches the folder and sends every new scan here automatically.
-          </p>
-        </div>
-      </div>
-      <ol className="text-xs text-amber-800 space-y-1.5 pl-2 border-l-2 border-amber-300 ml-2">
-        <li><span className="font-semibold">1.</span> Download the bridge script (Node.js 18+ required).</li>
-        <li><span className="font-semibold">2.</span> Open it in Notepad and set <span className="font-mono bg-amber-100 px-1 rounded">PASSWORD</span> to your DocScan admin password.</li>
-        <li><span className="font-semibold">3.</span> Double-click to run, or: <span className="font-mono bg-amber-100 px-1 rounded">node scanner-bridge.mjs</span></li>
-        <li><span className="font-semibold">4.</span> To start automatically on login, place a shortcut in your Windows Startup folder.</li>
-      </ol>
-      <a href={bridgeUrl} download="scanner-bridge.mjs">
-        <Button size="sm" variant="outline" className="h-8 text-xs border-amber-400 text-amber-800 hover:bg-amber-100">
-          <Download className="w-3.5 h-3.5 mr-1.5" /> Download scanner-bridge.mjs
-        </Button>
-      </a>
-    </div>
-  );
-}
-
 // ── main component ─────────────────────────────────────────────────────────────
 export default function Upload() {
   const { toast } = useToast();
@@ -116,8 +85,7 @@ export default function Upload() {
   const [loading,       setLoading]       = useState(true);
   const [statusFilter,  setStatusFilter]  = useState<StatusFilter>('all');
   const [dateRange,     setDateRange]     = useState<DateRange>('all');
-  const [watchPath,     setWatchPath]     = useState('');
-  const [neverHadDocs,  setNeverHadDocs]  = useState(false); // true = 0 docs across ALL filters
+  const [watchPath, setWatchPath] = useState('');
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const PAGE_SIZE = 20;
 
@@ -142,11 +110,6 @@ export default function Upload() {
       });
       setTotal(data.total);
       setTotalPages(data.totalPages);
-
-      // Check if there are zero docs at all (no filter applied)
-      if (p === 1 && statusFilter === 'all' && dateRange === 'all') {
-        setNeverHadDocs(data.total === 0);
-      }
     } catch {}
     finally { if (!silent) setLoading(false); }
   }, [page, statusFilter, dateRange]);
@@ -213,12 +176,8 @@ export default function Upload() {
         </Button>
       </div>
 
-      {/* ── bridge setup card — shown only when no docs have ever been ingested ── */}
-      {!loading && neverHadDocs && <BridgeSetupCard watchPath={watchPath} />}
-
       {/* ── filters ── */}
-      {!neverHadDocs && (
-        <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
           <Filter className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
           <div className="flex bg-muted/60 rounded-lg p-0.5 gap-0.5">
             {statusOptions.map((o) => (
@@ -240,19 +199,25 @@ export default function Upload() {
           </div>
           <span className="ml-auto text-xs text-muted-foreground">{total} document{total !== 1 ? 's' : ''}</span>
         </div>
-      )}
 
       {/* ── list ── */}
       {loading ? (
         <div className="flex items-center justify-center h-48 text-muted-foreground gap-2">
           <Loader2 className="w-4 h-4 animate-spin" /> Loading…
         </div>
-      ) : docs.length === 0 && !neverHadDocs ? (
-        <div className="flex flex-col items-center justify-center h-48 gap-3 border border-dashed rounded-xl text-muted-foreground">
-          <Printer className="w-8 h-8 opacity-30" />
-          <p className="text-sm">No documents match this filter</p>
+      ) : docs.length === 0 ? (
+        <div className="flex flex-col items-center justify-center h-56 gap-4 border border-dashed rounded-xl text-muted-foreground">
+          <Printer className="w-9 h-9 opacity-25" />
+          <div className="text-center">
+            <p className="text-sm font-medium">
+              {statusFilter !== 'all' || dateRange !== 'all' ? 'No documents match this filter' : 'Waiting for scans…'}
+            </p>
+            {statusFilter === 'all' && dateRange === 'all' && watchPath && (
+              <p className="text-xs mt-1 opacity-70">Files saved to <span className="font-mono">{watchPath}</span> appear here automatically</p>
+            )}
+          </div>
         </div>
-      ) : !neverHadDocs ? (
+      ) : (
         <AnimatePresence mode="popLayout" initial={false}>
           <div className="flex flex-col gap-2">
             {docs.map((doc) => (
@@ -297,7 +262,7 @@ export default function Upload() {
             ))}
           </div>
         </AnimatePresence>
-      ) : null}
+      )}
 
       {/* ── pagination ── */}
       {totalPages > 1 && (
