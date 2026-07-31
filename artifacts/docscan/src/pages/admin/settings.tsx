@@ -871,7 +871,6 @@ export default function Settings() {
                 <div className="space-y-6">
                   <ScanToUrlCard />
 
-                  {/* ── Watch Folder & Dispatch behaviour ── */}
                   <div>
                     <SHead>Folder & Dispatch</SHead>
 
@@ -901,91 +900,6 @@ export default function Settings() {
                         </div>
                       )} />
                     </Field>
-                  </div>
-
-                  <div>
-                    <SHead>Device</SHead>
-                    <Field label="Scanner model" hint="Display name for this device">
-                      <FormField control={form.control} name="scannerName" render={({ field }) => (
-                        <Input placeholder="e.g. HP LaserJet Pro MFP M128fn" className="h-9 text-sm" {...field} />
-                      )} />
-                    </Field>
-                  </div>
-
-                  <div>
-                    <SHead>Page & Format</SHead>
-                    <Field label="Paper size">
-                      <FormField control={form.control} name="scannerPaperSize" render={({ field }) => (
-                        <Chips value={field.value} onChange={field.onChange}
-                          options={PAPER_SIZES.map(s => ({ id: s, label: s }))} />
-                      )} />
-                    </Field>
-                    <Field label="Resolution" hint="300 DPI recommended for documents">
-                      <FormField control={form.control} name="scannerResolutionDpi" render={({ field }) => (
-                        <div className="space-y-2">
-                          <Chips value={field.value} onChange={v => field.onChange(Number(v))}
-                            options={DPI_OPTIONS.map(d => ({ id: String(d), label: `${d}` }))} />
-                          <p className="text-[11px] text-muted-foreground">{field.value} DPI selected</p>
-                        </div>
-                      )} />
-                    </Field>
-                    <Field label="Output format">
-                      <FormField control={form.control} name="scannerFileFormat" render={({ field }) => (
-                        <Chips value={field.value} onChange={field.onChange}
-                          options={FILE_FORMATS.map(f => ({ id: f, label: f.toUpperCase() }))} />
-                      )} />
-                    </Field>
-                  </div>
-
-                  <div>
-                    <SHead>Image</SHead>
-                    <Field label="Color mode">
-                      <FormField control={form.control} name="scannerColorMode" render={({ field }) => (
-                        <Chips value={field.value} onChange={field.onChange}
-                          options={COLOR_MODES.map(c => ({ id: c.id, label: c.label }))} />
-                      )} />
-                    </Field>
-                    <Field label="Duplex" hint="Scan both sides automatically">
-                      <FormField control={form.control} name="scannerDuplex" render={({ field }) => (
-                        <Switch checked={field.value} onCheckedChange={field.onChange} />
-                      )} />
-                    </Field>
-                    <Field label="Brightness" hint={`${form.watch('scannerBrightness') >= 0 ? '+' : ''}${form.watch('scannerBrightness')}`}>
-                      <FormField control={form.control} name="scannerBrightness" render={({ field }) => (
-                        <input type="range" min={-100} max={100} step={5}
-                          value={field.value} onChange={e => field.onChange(Number(e.target.value))}
-                          className="w-full accent-foreground" />
-                      )} />
-                    </Field>
-                    <Field label="Contrast" hint={`${form.watch('scannerContrast') >= 0 ? '+' : ''}${form.watch('scannerContrast')}`}>
-                      <FormField control={form.control} name="scannerContrast" render={({ field }) => (
-                        <input type="range" min={-100} max={100} step={5}
-                          value={field.value} onChange={e => field.onChange(Number(e.target.value))}
-                          className="w-full accent-foreground" />
-                      )} />
-                    </Field>
-                  </div>
-
-                  {/* Live preview summary */}
-                  <div className="rounded-xl border border-emerald-200 bg-emerald-50/50 p-4">
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-700/70 mb-3">Active Configuration</p>
-                    <div className="grid grid-cols-4 gap-3">
-                      {[
-                        { label: 'Paper',   value: form.watch('scannerPaperSize') },
-                        { label: 'DPI',     value: String(form.watch('scannerResolutionDpi')) },
-                        { label: 'Format',  value: (form.watch('scannerFileFormat') ?? 'pdf').toUpperCase() },
-                        { label: 'Color',   value: COLOR_MODES.find(c => c.id === form.watch('scannerColorMode'))?.label ?? '—' },
-                        { label: 'Duplex',  value: form.watch('scannerDuplex') ? 'On' : 'Off' },
-                        { label: 'Bright',  value: `${form.watch('scannerBrightness') >= 0 ? '+' : ''}${form.watch('scannerBrightness')}` },
-                        { label: 'Contrast',value: `${form.watch('scannerContrast') >= 0 ? '+' : ''}${form.watch('scannerContrast')}` },
-                        { label: 'Device',  value: form.watch('scannerName') || '—' },
-                      ].map(item => (
-                        <div key={item.label}>
-                          <p className="text-[9px] uppercase tracking-wider text-emerald-700/60 font-bold">{item.label}</p>
-                          <p className="text-sm font-bold font-mono text-foreground mt-0.5 truncate">{item.value}</p>
-                        </div>
-                      ))}
-                    </div>
                   </div>
                 </div>
               )}
