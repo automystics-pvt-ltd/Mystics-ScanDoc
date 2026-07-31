@@ -11,7 +11,7 @@ import {
   Eye, EyeOff, Copy, RotateCcw, FlaskConical, Key,
   AtSign, Globe, Bell, HardDrive, Printer, Wifi,
   WifiOff, ShieldCheck, Check, ChevronRight,
-  MessageSquare, Phone, Lock, Zap, Terminal,
+  MessageSquare, Phone, Lock, Zap, Terminal, FolderOpen,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -872,9 +872,27 @@ export default function Settings() {
                   <div>
                     <SHead>Folder & Dispatch</SHead>
 
-                    <Field label="Watch folder path" hint="Folder where HP scanner saves files (shown to users as reference)">
+                    <Field label="Watch folder path" hint="Folder where HP scanner saves files">
                       <FormField control={form.control} name="scannerWatchPath" render={({ field }) => (
-                        <Input placeholder="e.g. C:\Users\Name\Documents\HP Scans" className="h-9 text-sm font-mono" {...field} />
+                        <div className="flex gap-2">
+                          <Input placeholder="e.g. C:\Users\Name\Documents\HP Scans" className="h-9 text-sm font-mono flex-1" {...field} />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="h-9 px-3 shrink-0"
+                            onClick={async () => {
+                              try {
+                                // @ts-ignore — File System Access API
+                                const handle: FileSystemDirectoryHandle = await window.showDirectoryPicker({ mode: 'read' });
+                                field.onChange(handle.name);
+                              } catch {
+                                // user cancelled
+                              }
+                            }}
+                          >
+                            <FolderOpen className="w-4 h-4 mr-1.5" /> Browse
+                          </Button>
+                        </div>
                       )} />
                     </Field>
 
