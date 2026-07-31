@@ -11,7 +11,7 @@ import {
   Eye, EyeOff, Copy, RotateCcw, FlaskConical, Key,
   AtSign, Globe, Bell, HardDrive, Printer, Wifi,
   WifiOff, ShieldCheck, Check, ChevronRight,
-  MessageSquare, Phone, Lock, Zap, Terminal, FolderOpen,
+  MessageSquare, Phone, Lock, Zap, Terminal,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -872,31 +872,13 @@ export default function Settings() {
                   <div>
                     <SHead>Folder & Dispatch</SHead>
 
-                    <Field label="Watch folder path" hint="Folder where the HP scanner saves files. Click Browse to pick, or type the full path manually.">
+                    <Field label="Watch folder path" hint="Type the full path to the folder where the HP scanner saves files.">
                       <FormField control={form.control} name="scannerWatchPath" render={({ field }) => (
-                        <div className="flex gap-2">
-                          <Input
-                            placeholder="C:\Users\Name\Documents\HP Scans"
-                            className="h-9 text-sm font-mono flex-1"
-                            {...field}
-                          />
-                          <Button
-                            type="button"
-                            variant="outline"
-                            className="h-9 px-3 shrink-0"
-                            onClick={async () => {
-                              try {
-                                // @ts-ignore — File System Access API (Chrome/Edge only)
-                                const handle: FileSystemDirectoryHandle = await (window as any).showDirectoryPicker({ mode: 'read' });
-                                field.onChange(handle.name);
-                              } catch {
-                                // user cancelled or API unavailable — do nothing
-                              }
-                            }}
-                          >
-                            <FolderOpen className="w-4 h-4 mr-1.5" /> Browse
-                          </Button>
-                        </div>
+                        <Input
+                          placeholder="e.g. C:\Users\Name\Documents\HP Scans"
+                          className="h-9 text-sm font-mono"
+                          {...field}
+                        />
                       )} />
                     </Field>
 
