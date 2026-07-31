@@ -32,8 +32,7 @@ ok "PM2 $(pm2 --version) installed"
 
 # ── Directory structure ───────────────────────────────────────────────────────
 step "Creating directory structure"
-mkdir -p "$HOME/app/api-server/dist"
-mkdir -p "$HOME/app/api-server/node_modules"
+mkdir -p "$HOME/app/artifacts/api-server/dist"
 mkdir -p "$HOME/app/uploads"
 mkdir -p "$HOME/logs"
 mkdir -p "$HOME/htdocs/docscan.automystics.tech"
