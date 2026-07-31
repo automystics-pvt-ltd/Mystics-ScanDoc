@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import {
   UploadCloud, File as FileIcon, X, Send, Loader2,
   CheckCircle2, AlertCircle, Camera, RefreshCw, ScanLine, Printer, Wifi, WifiOff,
+  FolderOpen, FolderSearch, Eye,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
@@ -12,6 +13,10 @@ import { cn } from '@/lib/utils';
 type Mode = 'file' | 'camera' | 'scanner';
 type CameraState = 'idle' | 'requesting' | 'live' | 'captured' | 'error';
 type SseStatus = 'connecting' | 'connected' | 'error';
+type PendingScan = { id: number; name: string; file: File; sending: boolean; sent: boolean };
+
+const SCAN_EXTS = new Set(['pdf', 'jpg', 'jpeg', 'png', 'tif', 'tiff']);
+const hasFsApi = typeof window !== 'undefined' && 'showDirectoryPicker' in window;
 
 export default function Upload() {
   const [mode, setMode] = useState<Mode>('file');
@@ -37,6 +42,14 @@ export default function Upload() {
   const [scannedFileName, setScannedFileName] = useState<string>('');
   const [scannerDocReady, setScannerDocReady] = useState(false);
   const esRef = useRef<EventSource | null>(null);
+
+  // ── Local folder watch (File System Access API) ───────────────────────────
+  const [folderWatching, setFolderWatching] = useState(false);
+  const [folderName, setFolderName] = useState('');
+  const [pendingScans, setPendingScans] = useState<PendingScan[]>([]);
+  const folderHandle = useRef<FileSystemDirectoryHandle | null>(null);
+  const seenFiles = useRef<Set<string>>(new Set());
+  const watchIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const { toast } = useToast();
   const sendMutation = useSendDocument();
@@ -64,7 +77,6 @@ export default function Upload() {
         setScannedDocId(data.docId);
         setScannedFileName(data.fileName);
         setScannerDocReady(true);
-        // Auto-switch to scanner tab
         setMode('scanner');
         toast({ title: 'Document received', description: `Scanner delivered: ${data.fileName}` });
       } catch {}
@@ -79,6 +91,94 @@ export default function Upload() {
   }, [connectSse]);
 
   useEffect(() => () => stopStream(), [stopStream]);
+
+  // ── Folder polling ───────────────────────────────────────────────────────
+  const pollFolder = useCallback(async () => {
+    if (!folderHandle.current) return;
+    try {
+      // @ts-ignore — File System Access API iteration
+      for await (const [name, handle] of folderHandle.current) {
+        if (handle.kind !== 'file') continue;
+        const ext = name.split('.').pop()?.toLowerCase() ?? '';
+        if (!SCAN_EXTS.has(ext)) continue;
+        if (seenFiles.current.has(name)) continue;
+        seenFiles.current.add(name);
+        // Small delay so scanner finishes writing the file
+        await new Promise((r) => setTimeout(r, 800));
+        try {
+          const f: File = await (handle as FileSystemFileHandle).getFile();
+          if (f.size === 0) { seenFiles.current.delete(name); continue; }
+          const id = Date.now() + Math.random();
+          setPendingScans((prev) => [...prev, { id, name, file: f, sending: false, sent: false }]);
+          toast({ title: '📄 New scan detected', description: name });
+        } catch {
+          seenFiles.current.delete(name);
+        }
+      }
+    } catch (err) {
+      console.warn('Folder poll error:', err);
+    }
+  }, [toast]);
+
+  const startFolderWatch = async () => {
+    try {
+      // @ts-ignore
+      const handle: FileSystemDirectoryHandle = await window.showDirectoryPicker({ mode: 'read' });
+      folderHandle.current = handle;
+      seenFiles.current = new Set();
+      setFolderName(handle.name);
+      setFolderWatching(true);
+      setPendingScans([]);
+      if (watchIntervalRef.current) clearInterval(watchIntervalRef.current);
+      watchIntervalRef.current = setInterval(pollFolder, 2000);
+      pollFolder();
+      toast({ title: '📂 Watching folder', description: `${handle.name} — scan a document to see it here.` });
+    } catch {
+      // user cancelled picker — do nothing
+    }
+  };
+
+  const stopFolderWatch = () => {
+    if (watchIntervalRef.current) clearInterval(watchIntervalRef.current);
+    folderHandle.current = null;
+    seenFiles.current = new Set();
+    setFolderWatching(false);
+    setFolderName('');
+    setPendingScans([]);
+  };
+
+  useEffect(() => () => { if (watchIntervalRef.current) clearInterval(watchIntervalRef.current); }, []);
+
+  // ── Dispatch a locally-watched scan (upload then send) ───────────────────
+  const dispatchLocalScan = async (id: number) => {
+    const item = pendingScans.find((s) => s.id === id);
+    if (!item) return;
+    setPendingScans((prev) => prev.map((s) => s.id === id ? { ...s, sending: true } : s));
+    try {
+      const formData = new FormData();
+      formData.append('file', item.file);
+      const token = localStorage.getItem('docscan_token');
+      const res = await fetch(`${import.meta.env.BASE_URL}api/documents/upload`, {
+        method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: formData,
+      });
+      if (!res.ok) throw new Error('Upload failed');
+      const doc = await res.json();
+      sendMutation.mutate({ id: doc.id }, {
+        onSuccess: () => {
+          setPendingScans((prev) => prev.map((s) => s.id === id ? { ...s, sending: false, sent: true } : s));
+          toast({ title: '✅ Dispatched', description: `${item.name} sent to all recipients.` });
+          setTimeout(() => setPendingScans((prev) => prev.filter((s) => s.id !== id)), 3000);
+        },
+        onError: (err: any) => {
+          setPendingScans((prev) => prev.map((s) => s.id === id ? { ...s, sending: false } : s));
+          toast({ title: 'Dispatch Failed', description: err?.data?.error ?? 'Uploaded but failed to queue.', variant: 'destructive' });
+        },
+      });
+    } catch {
+      setPendingScans((prev) => prev.map((s) => s.id === id ? { ...s, sending: false } : s));
+      toast({ title: 'Upload Error', description: 'Failed to upload file.', variant: 'destructive' });
+    }
+  };
 
   // ── Mode switch ──────────────────────────────────────────────────────────
   const switchMode = (m: Mode) => {
@@ -177,6 +277,7 @@ export default function Upload() {
   };
 
   const isBusy = isUploading || sendMutation.isPending;
+  const hasPending = pendingScans.length > 0;
 
   return (
     <div className="max-w-7xl w-full mx-auto">
@@ -205,8 +306,7 @@ export default function Upload() {
             )}
           >
             <Icon className="w-4 h-4" /> {label}
-            {/* Pulse badge when scanner receives a doc */}
-            {id === 'scanner' && scannerDocReady && mode !== 'scanner' && (
+            {id === 'scanner' && (scannerDocReady || hasPending) && mode !== 'scanner' && (
               <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-green-500 border-2 border-background animate-pulse" />
             )}
           </button>
@@ -382,74 +482,139 @@ export default function Upload() {
             )}
 
             {/* ── PHYSICAL SCANNER MODE ──────────────────────────────────── */}
-            {mode === 'scanner' && !scannerDocReady && (
-              <motion.div key="scanner-waiting"
+            {mode === 'scanner' && (
+              <motion.div key="scanner-panel"
                 initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }}
-                className="flex flex-col items-center justify-center border-2 border-dashed border-border rounded-xl p-12 text-center min-h-[400px] bg-card">
-                <div className="relative w-20 h-20 mb-6">
-                  <div className="absolute inset-0 rounded-full bg-primary/10 animate-ping opacity-40" />
-                  <div className="relative w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center">
-                    <Printer className="w-9 h-9 text-primary" />
+                className="flex flex-col gap-4">
+
+                {/* ── Watch Folder card ───────────────────────────────────── */}
+                <div className="bg-card border border-border rounded-xl p-5 shadow-sm">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <FolderSearch className="w-4 h-4 text-primary" />
+                      <span className="font-semibold text-sm">Watch Local Folder</span>
+                      <span className="text-[10px] bg-primary/10 text-primary font-bold px-2 py-0.5 rounded-full uppercase tracking-wide">Easiest</span>
+                    </div>
+                    {folderWatching && (
+                      <button onClick={stopFolderWatch} className="text-xs text-muted-foreground hover:text-destructive underline underline-offset-2">Stop</button>
+                    )}
                   </div>
-                </div>
-                <h3 className="text-lg font-bold mb-2">Waiting for Scanner</h3>
-                <p className="text-sm text-muted-foreground max-w-xs mx-auto">
-                  Configure your physical scanner to POST documents to the <span className="font-mono text-foreground">Scan-to-URL</span> endpoint shown in Settings → Scanner.
-                  Documents will appear here automatically.
-                </p>
-                <div className={cn(
-                  'mt-6 flex items-center gap-2 px-4 py-2 rounded-full text-xs font-medium border',
-                  sseStatus === 'connected' ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200',
-                )}>
-                  {sseStatus === 'connected' ? <Wifi className="w-3.5 h-3.5" /> : <WifiOff className="w-3.5 h-3.5" />}
-                  {sseStatus === 'connected' ? 'Listening for documents…' : 'Connection lost — '}
-                  {sseStatus === 'error' && (
-                    <button onClick={connectSse} className="underline underline-offset-2 font-semibold">Reconnect</button>
+
+                  {!hasFsApi && (
+                    <p className="text-sm text-muted-foreground bg-muted/50 rounded-lg p-3 border border-border">
+                      ⚠ Folder watching requires <strong>Chrome or Edge</strong> browser. Please switch browsers to use this feature.
+                    </p>
+                  )}
+
+                  {hasFsApi && !folderWatching && (
+                    <div className="flex flex-col gap-3">
+                      <p className="text-sm text-muted-foreground">
+                        Point DocScan at your HP scanner's save folder. New scans appear here automatically — no extra software needed.
+                      </p>
+                      <Button onClick={startFolderWatch} variant="outline" className="w-full">
+                        <FolderOpen className="w-4 h-4 mr-2" /> Choose Scan Folder
+                      </Button>
+                    </div>
+                  )}
+
+                  {hasFsApi && folderWatching && (
+                    <div className="flex flex-col gap-3">
+                      <div className="flex items-center gap-2 text-sm">
+                        <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse shadow-[0_0_6px_rgba(34,197,94,0.6)]" />
+                        <span className="font-medium text-green-700">Watching:</span>
+                        <span className="font-mono text-foreground truncate">{folderName}</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Scan a document on your HP M128fn — it will appear below within seconds.
+                      </p>
+
+                      {/* Pending scans queue */}
+                      {pendingScans.length === 0 ? (
+                        <div className="flex items-center gap-3 bg-muted/50 rounded-lg p-4 border border-dashed border-border">
+                          <Eye className="w-5 h-5 text-muted-foreground shrink-0" />
+                          <p className="text-sm text-muted-foreground">Waiting for new scans in <strong>{folderName}</strong>…</p>
+                        </div>
+                      ) : (
+                        <div className="flex flex-col gap-2">
+                          {pendingScans.map((scan) => (
+                            <motion.div key={scan.id}
+                              initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
+                              className="flex items-center gap-3 bg-green-50 border border-green-200 rounded-lg px-4 py-3">
+                              <div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center shrink-0">
+                                <FileIcon className="w-4 h-4 text-primary" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-semibold truncate">{scan.name}</p>
+                                <p className="text-xs text-muted-foreground">{(scan.file.size / 1024).toFixed(0)} KB</p>
+                              </div>
+                              {scan.sent
+                                ? <span className="flex items-center gap-1 text-xs text-green-700 font-semibold"><CheckCircle2 className="w-4 h-4" /> Sent</span>
+                                : <Button size="sm" disabled={scan.sending} onClick={() => dispatchLocalScan(scan.id)} className="shrink-0">
+                                    {scan.sending ? <Loader2 className="w-3 h-3 animate-spin" /> : <><Send className="w-3 h-3 mr-1" />Dispatch</>}
+                                  </Button>
+                              }
+                            </motion.div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   )}
                 </div>
-              </motion.div>
-            )}
 
-            {mode === 'scanner' && scannerDocReady && (
-              <motion.div key="scanner-ready"
-                initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-                className="bg-card border border-border rounded-xl p-8 flex flex-col min-h-[400px] justify-between shadow-sm">
-                <div>
-                  <div className="flex items-center gap-3 mb-6">
-                    <div className="w-3 h-3 rounded-full bg-green-500 animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.6)]" />
-                    <span className="text-sm font-semibold text-green-700">Document received from scanner</span>
-                  </div>
-                  <div className="flex items-center gap-5 mb-8">
-                    <div className="w-16 h-16 bg-primary/10 rounded-xl flex items-center justify-center border border-primary/20">
-                      <FileIcon className="w-8 h-8 text-primary" />
+                {/* ── SSE / remote scanner doc card ──────────────────────── */}
+                {!scannerDocReady && (
+                  <div className="bg-card border border-border rounded-xl p-5 shadow-sm">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Printer className="w-4 h-4 text-muted-foreground" />
+                      <span className="font-semibold text-sm text-muted-foreground">Scan-to-URL (Advanced)</span>
                     </div>
-                    <div>
-                      <h4 className="font-bold text-lg mb-1 truncate max-w-[300px]">{scannedFileName}</h4>
-                      <p className="text-xs text-muted-foreground font-mono">Document ID #{scannedDocId}</p>
+                    <div className={cn(
+                      'flex items-center gap-2 text-xs font-medium px-3 py-2 rounded-full w-fit border',
+                      sseStatus === 'connected' ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200',
+                    )}>
+                      {sseStatus === 'connected' ? <Wifi className="w-3 h-3" /> : <WifiOff className="w-3 h-3" />}
+                      {sseStatus === 'connected' ? 'Listening for documents…' : 'Connection lost — '}
+                      {sseStatus === 'error' && (
+                        <button onClick={connectSse} className="underline underline-offset-2 font-semibold">Reconnect</button>
+                      )}
                     </div>
-                    <Button variant="ghost" size="icon" className="ml-auto text-muted-foreground hover:text-destructive"
-                      onClick={() => { setScannerDocReady(false); setScannedDocId(null); setScanSuccess(false); }}>
-                      <X className="w-5 h-5" />
-                    </Button>
+                    <p className="text-xs text-muted-foreground mt-3">
+                      Configure your scanner with the endpoint URL from <strong>Settings → Scanner</strong> for automatic push delivery.
+                    </p>
                   </div>
-                  <div className="bg-muted/50 rounded-lg p-4 border border-border flex items-start gap-3">
-                    <Printer className="w-5 h-5 text-primary shrink-0 mt-0.5" />
-                    <div className="text-sm text-muted-foreground">
-                      <p className="font-semibold text-foreground mb-1">Ready for dispatch</p>
-                      <p>The scanned document has been received and saved. Click Dispatch to route it to all configured recipients.</p>
+                )}
+
+                {scannerDocReady && (
+                  <motion.div key="scanner-ready"
+                    initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+                    className="bg-card border border-border rounded-xl p-6 shadow-sm">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="w-3 h-3 rounded-full bg-green-500 animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.6)]" />
+                      <span className="text-sm font-semibold text-green-700">Document received from scanner</span>
                     </div>
-                  </div>
-                </div>
-                <div className="mt-8">
-                  {scanSuccess
-                    ? <Button variant="outline" className="w-full h-12 font-semibold text-green-600 border-green-200 bg-green-50">
-                        <CheckCircle2 className="w-5 h-5 mr-2" /> Dispatched Successfully
+                    <div className="flex items-center gap-4 mb-6">
+                      <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center border border-primary/20">
+                        <FileIcon className="w-6 h-6 text-primary" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h4 className="font-bold truncate">{scannedFileName}</h4>
+                        <p className="text-xs text-muted-foreground font-mono">Doc #{scannedDocId}</p>
+                      </div>
+                      <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-destructive"
+                        onClick={() => { setScannerDocReady(false); setScannedDocId(null); setScanSuccess(false); }}>
+                        <X className="w-4 h-4" />
                       </Button>
-                    : <Button onClick={dispatchScannedDoc} disabled={scanSending} className="w-full h-12 font-semibold">
-                        {scanSending ? <><Loader2 className="w-5 h-5 mr-2 animate-spin" />Dispatching…</> : <><Send className="w-5 h-5 mr-2" />Dispatch Document</>}
-                      </Button>
-                  }
-                </div>
+                    </div>
+                    {scanSuccess
+                      ? <Button variant="outline" className="w-full h-11 font-semibold text-green-600 border-green-200 bg-green-50">
+                          <CheckCircle2 className="w-5 h-5 mr-2" /> Dispatched Successfully
+                        </Button>
+                      : <Button onClick={dispatchScannedDoc} disabled={scanSending} className="w-full h-11 font-semibold">
+                          {scanSending ? <><Loader2 className="w-5 h-5 mr-2 animate-spin" />Dispatching…</> : <><Send className="w-5 h-5 mr-2" />Dispatch Document</>}
+                        </Button>
+                    }
+                  </motion.div>
+                )}
               </motion.div>
             )}
           </AnimatePresence>
@@ -474,6 +639,12 @@ export default function Upload() {
                 <div className={cn('w-2 h-2 rounded-full', sseStatus === 'connected' ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]' : 'bg-red-400')} />
                 <span className="text-sm font-medium">Scanner {sseStatus === 'connected' ? 'Online' : 'Offline'}</span>
               </div>
+              {folderWatching && (
+                <div className="flex items-center gap-3">
+                  <div className="w-2 h-2 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.6)] animate-pulse" />
+                  <span className="text-sm font-medium">Folder Watch Active</span>
+                </div>
+              )}
             </div>
           </div>
 
@@ -483,10 +654,10 @@ export default function Upload() {
             </h3>
             <ul className="text-sm text-muted-foreground space-y-2 list-disc pl-4 marker:text-muted">
               {mode === 'scanner' ? <>
-                <li>Configure scanner with the endpoint URL from Settings → Scanner.</li>
-                <li>Use the scanner API key for authentication.</li>
-                <li>Supports PDF, JPG, PNG, and TIFF output formats.</li>
-                <li>Documents appear here instantly after scanning.</li>
+                <li>Use <strong>Chrome or Edge</strong> for the Watch Folder feature.</li>
+                <li>Set HP M128fn to save scans to a folder on your PC.</li>
+                <li>Click <strong>Choose Scan Folder</strong> and select that folder once.</li>
+                <li>New scans appear automatically — just click Dispatch.</li>
               </> : <>
                 <li>Ensure pages are flat and fully visible.</li>
                 <li>Avoid shadows or glare on the document.</li>
