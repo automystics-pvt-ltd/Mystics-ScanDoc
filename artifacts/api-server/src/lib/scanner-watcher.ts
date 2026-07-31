@@ -33,7 +33,8 @@ const uploadsDir = path.join(process.cwd(), "uploads");
 const SETTINGS_POLL_MS = 30_000;
 
 let watcher: FSWatcher | null = null;
-let currentWatchPath = "";
+let configuredWatchPath = "";   // what the DB says — always updated on each poll
+let currentWatchPath = "";      // what chokidar is actually watching (set only when watcher starts)
 let systemUserId: number | null = null;
 let lastFileAt: Date | null = null;
 let filesIngested = 0;
@@ -47,11 +48,10 @@ export type WatcherStatus = {
 };
 
 export function getWatcherStatus(): WatcherStatus {
-  const p = currentWatchPath;
   return {
     running:       watcher !== null,
-    watchPath:     p,
-    pathExists:    p ? fs.existsSync(p) : false,
+    watchPath:     configuredWatchPath,                                      // always reflect what's in DB
+    pathExists:    configuredWatchPath ? fs.existsSync(configuredWatchPath) : false,
     lastFileAt:    lastFileAt ? lastFileAt.toISOString() : null,
     filesIngested,
   };
@@ -249,6 +249,9 @@ async function checkSettings(): Promise<void> {
   }).from(settingsTable).limit(1);
 
   const newPath = settings?.scannerWatchPath ?? "";
+
+  // Always keep configuredWatchPath current so getWatcherStatus() reflects the DB value
+  configuredWatchPath = newPath;
 
   // Stop the old watcher when the path has changed
   if (watcher && newPath !== currentWatchPath) {
