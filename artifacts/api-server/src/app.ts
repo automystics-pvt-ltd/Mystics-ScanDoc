@@ -29,7 +29,30 @@ app.use(
     },
   }),
 );
-app.use(cors());
+
+// Build allowed-origin list from the environment.
+// ALLOWED_ORIGINS accepts a comma-separated list of exact origins.
+// If unset, all origins are allowed (open — suitable for local dev).
+const allowedOrigins: string[] = (process.env.ALLOWED_ORIGINS ?? "")
+  .split(",")
+  .map((o) => o.trim())
+  .filter(Boolean);
+
+app.use(
+  cors({
+    origin: allowedOrigins.length === 0
+      ? true // allow all when no list is configured
+      : (origin, callback) => {
+          // Same-origin requests (no Origin header) and listed origins are allowed.
+          if (!origin || allowedOrigins.includes(origin)) {
+            callback(null, true);
+          } else {
+            callback(null, false);
+          }
+        },
+    credentials: true,
+  }),
+);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
