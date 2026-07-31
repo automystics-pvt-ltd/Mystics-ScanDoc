@@ -10,6 +10,7 @@ import adminSettingsRouter from "./admin-settings";
 import adminDashboardRouter from "./admin-dashboard";
 import adminAuditLogsRouter from "./admin-audit-logs";
 import scannerRouter from "./scanner";
+import scannerDocumentsRouter from "./scanner-documents";
 
 const router: IRouter = Router();
 
@@ -17,6 +18,7 @@ router.use(healthRouter);
 router.use(authRouter);
 router.use(documentsRouter);
 router.use(scannerRouter);
+router.use(scannerDocumentsRouter);
 router.use(adminUsersRouter);
 router.use(adminDocumentsRouter);
 router.use(adminEmailLogsRouter);

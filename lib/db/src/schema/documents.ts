@@ -11,6 +11,9 @@ export const documentsTable = pgTable("documents", {
   fileType: text("file_type").notNull(),
   fileSize: integer("file_size"),
   uploadedAt: timestamp("uploaded_at", { withTimezone: true }).notNull().defaultNow(),
+  // Scanner ingestion tracking
+  source: text("source").default("upload"),       // 'upload' | 'scanner'
+  sourcePath: text("source_path"),                // original OS path (scanner files only)
 });
 
 export const insertDocumentSchema = createInsertSchema(documentsTable).omit({ id: true, uploadedAt: true });
