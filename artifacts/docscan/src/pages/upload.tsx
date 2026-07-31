@@ -16,7 +16,6 @@ type ScanDoc = {
   fileName: string;
   fileSize: number | null;
   uploadedAt: string;
-  sourcePath: string | null;
   dispatchStatus: DispatchStatus;
   _dispatching?: boolean;
 };
@@ -40,12 +39,14 @@ function fromDate(range: DateRange): string | undefined {
   if (range === 'month') { const d = new Date(now); d.setDate(d.getDate() - 29); return d.toISOString(); }
   return undefined;
 }
+
 function fmtSize(bytes: number | null): string {
   if (!bytes) return '';
   if (bytes < 1024)        return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
+
 function fmtDate(iso: string): string {
   const d    = new Date(iso);
   const now  = new Date();
@@ -60,11 +61,11 @@ function fmtDate(iso: string): string {
 // ── status badge ──────────────────────────────────────────────────────────────
 function StatusBadge({ status }: { status: DispatchStatus | '_dispatching' }) {
   const map: Record<string, { label: string; cls: string; icon: React.ReactNode }> = {
-    queued:       { label: 'Queued',   cls: 'bg-amber-50 text-amber-700 border-amber-200',  icon: <Clock className="w-3 h-3" /> },
-    pending:      { label: 'Retrying', cls: 'bg-blue-50 text-blue-700 border-blue-200',     icon: <RefreshCw className="w-3 h-3 animate-spin" /> },
-    sent:         { label: 'Sent',     cls: 'bg-green-50 text-green-700 border-green-200',  icon: <CheckCircle2 className="w-3 h-3" /> },
-    failed:       { label: 'Failed',   cls: 'bg-red-50 text-red-700 border-red-200',        icon: <XCircle className="w-3 h-3" /> },
-    _dispatching: { label: 'Sending…', cls: 'bg-primary/10 text-primary border-primary/20', icon: <Loader2 className="w-3 h-3 animate-spin" /> },
+    queued:       { label: 'Queued',   cls: 'bg-amber-50 text-amber-700 border-amber-200',   icon: <Clock className="w-3 h-3" /> },
+    pending:      { label: 'Retrying', cls: 'bg-blue-50 text-blue-700 border-blue-200',      icon: <RefreshCw className="w-3 h-3 animate-spin" /> },
+    sent:         { label: 'Sent',     cls: 'bg-green-50 text-green-700 border-green-200',   icon: <CheckCircle2 className="w-3 h-3" /> },
+    failed:       { label: 'Failed',   cls: 'bg-red-50 text-red-700 border-red-200',         icon: <XCircle className="w-3 h-3" /> },
+    _dispatching: { label: 'Sending…', cls: 'bg-primary/10 text-primary border-primary/20',  icon: <Loader2 className="w-3 h-3 animate-spin" /> },
   };
   const cfg = map[status] ?? map.queued;
   return (
@@ -74,23 +75,24 @@ function StatusBadge({ status }: { status: DispatchStatus | '_dispatching' }) {
   );
 }
 
-// ── main component ─────────────────────────────────────────────────────────────
+// ── component ─────────────────────────────────────────────────────────────────
 export default function Upload() {
   const { toast } = useToast();
 
-  const [docs,          setDocs]          = useState<ScanDoc[]>([]);
-  const [total,         setTotal]         = useState(0);
-  const [totalPages,    setTotalPages]    = useState(1);
-  const [page,          setPage]          = useState(1);
-  const [loading,       setLoading]       = useState(true);
-  const [statusFilter,  setStatusFilter]  = useState<StatusFilter>('all');
-  const [dateRange,     setDateRange]     = useState<DateRange>('all');
-  const [watchPath, setWatchPath] = useState('');
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [docs,         setDocs]         = useState<ScanDoc[]>([]);
+  const [total,        setTotal]        = useState(0);
+  const [totalPages,   setTotalPages]   = useState(1);
+  const [page,         setPage]         = useState(1);
+  const [loading,      setLoading]      = useState(true);
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const [dateRange,    setDateRange]    = useState<DateRange>('all');
+  const [watchPath,    setWatchPath]    = useState('');
+
+  const pollRef  = useRef<ReturnType<typeof setInterval> | null>(null);
   const PAGE_SIZE = 20;
 
-  // ── fetch docs ──────────────────────────────────────────────────────────────
-  const fetchDocs = useCallback(async (p = page, silent = false) => {
+  // ── fetch ───────────────────────────────────────────────────────────────────
+  const fetchDocs = useCallback(async (p: number, silent = false) => {
     if (!silent) setLoading(true);
     try {
       const token  = localStorage.getItem('docscan_token') ?? '';
@@ -110,20 +112,24 @@ export default function Upload() {
       });
       setTotal(data.total);
       setTotalPages(data.totalPages);
-    } catch {}
+    } catch { /* network error — keep stale data */ }
     finally { if (!silent) setLoading(false); }
-  }, [page, statusFilter, dateRange]);
+  }, [statusFilter, dateRange]);
 
-  useEffect(() => { fetchDocs(page); }, [page, statusFilter, dateRange]);
+  // Reload when filter/page changes
+  useEffect(() => { fetchDocs(page); }, [page, statusFilter, dateRange, fetchDocs]);
+
+  // Reset page when filters change
   useEffect(() => { setPage(1); }, [statusFilter, dateRange]);
 
+  // Background poll every 8 s
   useEffect(() => {
     if (pollRef.current) clearInterval(pollRef.current);
     pollRef.current = setInterval(() => fetchDocs(page, true), 8_000);
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
   }, [fetchDocs, page]);
 
-  // Load scanner config
+  // Load scanner config for header display
   useEffect(() => {
     const token = localStorage.getItem('docscan_token') ?? '';
     fetch(`${import.meta.env.BASE_URL}api/scanner/config`, { headers: { Authorization: `Bearer ${token}` } })
@@ -150,57 +156,68 @@ export default function Upload() {
   };
 
   // ── filter options ──────────────────────────────────────────────────────────
-  const statusOptions: { value: StatusFilter; label: string }[] = [
+  const statusOpts: { value: StatusFilter; label: string }[] = [
     { value: 'all', label: 'All' }, { value: 'queued', label: 'Queued' },
     { value: 'pending', label: 'Retrying' }, { value: 'sent', label: 'Sent' },
     { value: 'failed', label: 'Failed' },
   ];
-  const dateOptions: { value: DateRange; label: string }[] = [
+  const dateOpts: { value: DateRange; label: string }[] = [
     { value: 'all', label: 'All time' }, { value: 'today', label: 'Today' },
     { value: 'week', label: 'Last 7 days' }, { value: 'month', label: 'Last 30 days' },
   ];
 
+  // ── render ──────────────────────────────────────────────────────────────────
   return (
     <div className="w-full flex flex-col gap-5">
 
-      {/* ── header ── */}
+      {/* header */}
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight mb-1">Physical Scanner</h1>
           {watchPath
             ? <p className="text-sm text-muted-foreground font-mono">{watchPath}</p>
-            : <p className="text-sm text-muted-foreground">Set watch folder in Admin → Settings → Scanner</p>}
+            : <p className="text-sm text-muted-foreground">Set watch folder in Admin → Settings → Scanner</p>
+          }
         </div>
         <Button size="sm" variant="outline" onClick={() => fetchDocs(page)} className="h-8 text-xs shrink-0 mt-1">
           <RefreshCw className="w-3.5 h-3.5 mr-1.5" /> Refresh
         </Button>
       </div>
 
-      {/* ── filters ── */}
+      {/* filters */}
       <div className="flex flex-wrap items-center gap-2">
-          <Filter className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-          <div className="flex bg-muted/60 rounded-lg p-0.5 gap-0.5">
-            {statusOptions.map((o) => (
-              <button key={o.value} onClick={() => setStatusFilter(o.value)}
-                className={cn('px-3 py-1 rounded-md text-xs font-medium transition-colors',
-                  statusFilter === o.value ? 'bg-background shadow text-foreground' : 'text-muted-foreground hover:text-foreground')}>
-                {o.label}
-              </button>
-            ))}
-          </div>
-          <div className="flex bg-muted/60 rounded-lg p-0.5 gap-0.5">
-            {dateOptions.map((o) => (
-              <button key={o.value} onClick={() => setDateRange(o.value)}
-                className={cn('px-3 py-1 rounded-md text-xs font-medium transition-colors',
-                  dateRange === o.value ? 'bg-background shadow text-foreground' : 'text-muted-foreground hover:text-foreground')}>
-                {o.label}
-              </button>
-            ))}
-          </div>
-          <span className="ml-auto text-xs text-muted-foreground">{total} document{total !== 1 ? 's' : ''}</span>
+        <Filter className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+
+        <div className="flex bg-muted/60 rounded-lg p-0.5 gap-0.5">
+          {statusOpts.map((o) => (
+            <button key={o.value} onClick={() => setStatusFilter(o.value)}
+              className={cn('px-3 py-1 rounded-md text-xs font-medium transition-colors',
+                statusFilter === o.value
+                  ? 'bg-background shadow text-foreground'
+                  : 'text-muted-foreground hover:text-foreground')}>
+              {o.label}
+            </button>
+          ))}
         </div>
 
-      {/* ── list ── */}
+        <div className="flex bg-muted/60 rounded-lg p-0.5 gap-0.5">
+          {dateOpts.map((o) => (
+            <button key={o.value} onClick={() => setDateRange(o.value)}
+              className={cn('px-3 py-1 rounded-md text-xs font-medium transition-colors',
+                dateRange === o.value
+                  ? 'bg-background shadow text-foreground'
+                  : 'text-muted-foreground hover:text-foreground')}>
+              {o.label}
+            </button>
+          ))}
+        </div>
+
+        <span className="ml-auto text-xs text-muted-foreground">
+          {total} document{total !== 1 ? 's' : ''}
+        </span>
+      </div>
+
+      {/* list */}
       {loading ? (
         <div className="flex items-center justify-center h-48 text-muted-foreground gap-2">
           <Loader2 className="w-4 h-4 animate-spin" /> Loading…
@@ -210,10 +227,12 @@ export default function Upload() {
           <Printer className="w-9 h-9 opacity-25" />
           <div className="text-center">
             <p className="text-sm font-medium">
-              {statusFilter !== 'all' || dateRange !== 'all' ? 'No documents match this filter' : 'Waiting for scans…'}
+              {statusFilter !== 'all' || dateRange !== 'all'
+                ? 'No documents match this filter'
+                : 'Waiting for scans…'}
             </p>
             {statusFilter === 'all' && dateRange === 'all' && watchPath && (
-              <p className="text-xs mt-1 opacity-70">Files saved to <span className="font-mono">{watchPath}</span> appear here automatically</p>
+              <p className="text-xs mt-1 opacity-70 font-mono">{watchPath}</p>
             )}
           </div>
         </div>
@@ -226,10 +245,10 @@ export default function Upload() {
                 className={cn(
                   'bg-card border rounded-xl px-4 py-3 flex items-center gap-3 shadow-sm',
                   doc.dispatchStatus === 'sent'   ? 'border-green-200' :
-                  doc.dispatchStatus === 'failed' ? 'border-red-200' : 'border-border',
+                  doc.dispatchStatus === 'failed' ? 'border-red-200'   : 'border-border',
                 )}>
 
-                {/* File type chip */}
+                {/* file type chip */}
                 <div className={cn(
                   'w-9 h-9 rounded-lg flex items-center justify-center border shrink-0 text-[10px] font-bold uppercase tracking-wide',
                   doc.dispatchStatus === 'sent'   ? 'bg-green-50 border-green-200 text-green-700' :
@@ -239,7 +258,7 @@ export default function Upload() {
                   {doc.fileName.split('.').pop()?.slice(0, 3) ?? 'DOC'}
                 </div>
 
-                {/* Name + meta */}
+                {/* name + meta */}
                 <div className="flex-1 min-w-0">
                   <p className="font-medium text-sm truncate leading-tight">{doc.fileName}</p>
                   <p className="text-xs text-muted-foreground mt-0.5">
@@ -247,24 +266,26 @@ export default function Upload() {
                   </p>
                 </div>
 
-                {/* Status */}
+                {/* status */}
                 <StatusBadge status={doc._dispatching ? '_dispatching' : doc.dispatchStatus} />
 
-                {/* Action */}
+                {/* action */}
                 {(doc.dispatchStatus === 'queued' || doc.dispatchStatus === 'failed') && !doc._dispatching && (
                   <Button size="sm" className="h-7 text-xs shrink-0 ml-1" onClick={() => dispatch(doc)}>
                     <Send className="w-3 h-3 mr-1" />
                     {doc.dispatchStatus === 'failed' ? 'Retry' : 'Dispatch'}
                   </Button>
                 )}
-                {doc._dispatching && <Loader2 className="w-4 h-4 animate-spin text-primary shrink-0 ml-1" />}
+                {doc._dispatching && (
+                  <Loader2 className="w-4 h-4 animate-spin text-primary shrink-0 ml-1" />
+                )}
               </motion.div>
             ))}
           </div>
         </AnimatePresence>
       )}
 
-      {/* ── pagination ── */}
+      {/* pagination */}
       {totalPages > 1 && (
         <div className="flex items-center justify-between pt-1">
           <Button size="sm" variant="outline" disabled={page <= 1}

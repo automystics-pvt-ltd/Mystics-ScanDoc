@@ -26,21 +26,18 @@ router.get("/scanner/documents", requireAuth, async (req, res): Promise<void> =>
   const fromDate = req.query.from ? new Date(String(req.query.from)) : null;
   const toDate   = req.query.to   ? new Date(String(req.query.to))   : null;
 
-  // ── base where conditions ─────────────────────────────────────────────────
-  const conditions: ReturnType<typeof eq>[] = [
-    eq(documentsTable.source, "scanner") as any,
-  ];
+  // ── date filter conditions (no source filter — show ALL documents) ──────────
+  const conditions: any[] = [];
   if (fromDate && !isNaN(fromDate.getTime())) {
-    conditions.push(gte(documentsTable.uploadedAt, fromDate) as any);
+    conditions.push(gte(documentsTable.uploadedAt, fromDate));
   }
   if (toDate && !isNaN(toDate.getTime())) {
-    // Include the entire "to" day
     const endOfDay = new Date(toDate);
     endOfDay.setHours(23, 59, 59, 999);
-    conditions.push(lte(documentsTable.uploadedAt, endOfDay) as any);
+    conditions.push(lte(documentsTable.uploadedAt, endOfDay));
   }
 
-  const where = conditions.length === 1 ? conditions[0] : and(...conditions);
+  const where = conditions.length > 0 ? and(...conditions) : undefined;
 
   // ── fetch all matching scanner docs ───────────────────────────────────────
   // We'll compute dispatch status in JS because SQLite-style CASE over grouped
@@ -48,7 +45,8 @@ router.get("/scanner/documents", requireAuth, async (req, res): Promise<void> =>
   const allDocs = await db
     .select()
     .from(documentsTable)
-    .where(where as any)
+    .$dynamic()
+    .where(where)
     .orderBy(desc(documentsTable.uploadedAt));
 
   // Fetch all email logs for these docs in one query
