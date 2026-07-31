@@ -1,0 +1,94 @@
+root@srv1609330:/home/automystics-docscan/app# # 1. What process owns port 3010?
+fuser 3010/tcp 2>/dev/null | xargs -I{} sh -c 'echo "PID: {}"; cat /proc/{}/cmdline | tr "\0" " "; echo'
+
+# 2. What systemd services are running?
+systemctl list-units --type=service --state=running | grep -v "snap\|getty\|ssh\|system\|user\|log\|cron\|dbus\|network\|udev\|apt"
+
+# 3. What does nginx proxy to?
+grep -rn "proxy_pass" /etc/nginx/sites-enabled/ /etc/nginx/conf.d/ 2>/dev/null
+PID: 1673061
+node /home/automystics-docscan/app/artifacts/api-server/dist/index.mjs                                            
+  UNIT                            LOAD   ACTIVE SUB     DESCRIPTION
+  chrony.service                  loaded active running chrony, an NTP client/server
+  clp-agent.service               loaded active running clp-agent
+  clp-nginx.service               loaded active running A high performance web server and a reverse proxy server
+  clp-php-fpm.service             loaded active running The CLP PHP 8.1 FastCGI Process Manager
+  fail2ban.service                loaded active running Fail2Ban Service
+  fwupd.service                   loaded active running Firmware update daemon
+  memcached.service               loaded active running memcached daemon
+  ModemManager.service            loaded active running Modem Manager
+  monarx-agent.service            loaded active running Monarx Agent - Security Scanner
+  mosquitto.service               loaded active running Mosquitto MQTT Broker
+  multipathd.service              loaded active running Device-Mapper Multipath Device Controller
+  mysql.service                   loaded active running Percona Server
+  nginx.service                   loaded active running A high performance web server and a reverse proxy server
+  percona-telemetry-agent.service loaded active running percona-telemetry-agent
+  php7.1-fpm.service              loaded active running The PHP 7.1 FastCGI Process Manager
+  php7.2-fpm.service              loaded active running The PHP 7.2 FastCGI Process Manager
+  php7.3-fpm.service              loaded active running The PHP 7.3 FastCGI Process Manager
+  php7.4-fpm.service              loaded active running The PHP 7.4 FastCGI Process Manager
+  php8.0-fpm.service              loaded active running The PHP 8.0 FastCGI Process Manager
+  php8.1-fpm.service              loaded active running The PHP 8.1 FastCGI Process Manager
+  php8.2-fpm.service              loaded active running The PHP 8.2 FastCGI Process Manager
+  php8.3-fpm.service              loaded active running The PHP 8.3 FastCGI Process Manager
+  php8.4-fpm.service              loaded active running The PHP 8.4 FastCGI Process Manager
+  php8.5-fpm.service              loaded active running The PHP 8.5 FastCGI Process Manager
+  polkit.service                  loaded active running Authorization Manager
+  postfix@-.service               loaded active running Postfix Mail Transport Agent (instance -)
+  postgresql@16-main.service      loaded active running PostgreSQL Cluster 16-main
+  proftpd.service                 loaded active running ProFTPD FTP Server
+  qemu-guest-agent.service        loaded active running QEMU Guest Agent
+  redis-server.service            loaded active running Advanced key-value store
+  solar-scada-api.service         loaded active running Solar SCADA API Server
+  solar-scada-proxy.service       loaded active running Solar SCADA Frontend Proxy (:3003)
+  udisks2.service                 loaded active running Disk Manager
+  unattended-upgrades.service     loaded active running Unattended Upgrades Shutdown
+  varnish.service                 loaded active running Varnish Cache, a high-performance HTTP accelerator
+
+Legend: LOAD   → Reflects whether the unit definition was properly loaded.
+        ACTIVE → The high-level unit activation state, i.e. generalization of SUB.
+        SUB    → The low-level unit activation state, values depend on unit type.
+
+48 loaded units listed.
+/etc/nginx/sites-enabled/mysticsinv.automystics.tech.conf:41:    proxy_pass http://127.0.0.1:6000;
+/etc/nginx/sites-enabled/mysticsinv.automystics.tech.conf:51:    proxy_pass_request_headers on;
+/etc/nginx/sites-enabled/solarepc.automystics.tech.conf:31:    proxy_pass http://127.0.0.1:5001;
+/etc/nginx/sites-enabled/solarepc.automystics.tech.conf:41:    proxy_pass_request_headers on;
+/etc/nginx/sites-enabled/solarnexus.automystics.tech.conf:38:    proxy_pass http://127.0.0.1:9000/api/;
+/etc/nginx/sites-enabled/solarnexus.automystics.tech.conf:48:    proxy_pass_request_headers on;
+/etc/nginx/sites-enabled/automystics.com.conf:59:    proxy_pass         http://127.0.0.1:8080;
+/etc/nginx/sites-enabled/mysticsaudit.automystics.tech.conf:34:    proxy_pass http://127.0.0.1:3500/;
+/etc/nginx/sites-enabled/mysticsaudit.automystics.tech.conf:44:    proxy_pass_request_headers on;
+/etc/nginx/sites-enabled/ayyappan-temple:17:        proxy_pass         http://127.0.0.1:3019;
+/etc/nginx/sites-enabled/ungalrajeev.tamilagavetrikalagam.com.conf:34:    proxy_pass http://127.0.0.1:6500/;
+/etc/nginx/sites-enabled/ungalrajeev.tamilagavetrikalagam.com.conf:44:    proxy_pass_request_headers on;
+/etc/nginx/sites-enabled/ungalvignesh.tamilagavetrikalagam.com.conf:34:    proxy_pass http://127.0.0.1:8500/;
+/etc/nginx/sites-enabled/ungalvignesh.tamilagavetrikalagam.com.conf:44:    proxy_pass_request_headers on;
+/etc/nginx/sites-enabled/scada.automystics.tech.conf:30:    proxy_pass http://127.0.0.1:18080;
+/etc/nginx/sites-enabled/tkprabhu.tamilagavetrikalagam.com.conf:34:    proxy_pass http://127.0.0.1:3002;
+/etc/nginx/sites-enabled/tkprabhu.tamilagavetrikalagam.com.conf:46:    proxy_pass http://127.0.0.1:3002;
+/etc/nginx/sites-enabled/kuralai.automystics.tech.conf.bak.1778000544:34:    proxy_pass http://127.0.0.1:3000;
+/etc/nginx/sites-enabled/kuralai.automystics.tech.conf.bak.1778000544:51:    proxy_pass http://127.0.0.1:3000/;
+/etc/nginx/sites-enabled/kuralai.automystics.tech.conf.bak.1778000544:61:    proxy_pass_request_headers on;
+/etc/nginx/sites-enabled/docscan.automystics.tech.conf:35:    proxy_pass http://127.0.0.1:3001;
+/etc/nginx/sites-enabled/docscan.automystics.tech.conf:45:    proxy_pass_request_headers on;
+/etc/nginx/sites-enabled/ungaludansarath.tamilagavetrikalagam.com.conf:34:    proxy_pass http://127.0.0.1:5500/;
+/etc/nginx/sites-enabled/ungaludansarath.tamilagavetrikalagam.com.conf:44:    proxy_pass_request_headers on;
+/etc/nginx/sites-enabled/www.fitro360.com.conf:49:    proxy_pass http://127.0.0.1:5000/;
+/etc/nginx/sites-enabled/www.fitro360.com.conf:59:    proxy_pass_request_headers on;
+/etc/nginx/sites-enabled/erp.automystics.tech.conf.bak:39:    proxy_pass http://127.0.0.1:3051;
+/etc/nginx/sites-enabled/kuralai.automystics.tech.conf.bak.1777997518:34:    proxy_pass http://127.0.0.1:3000/;
+/etc/nginx/sites-enabled/kuralai.automystics.tech.conf.bak.1777997518:44:    proxy_pass_request_headers on;
+/etc/nginx/sites-enabled/kalvicore.automystics.tech.conf:34:    proxy_pass http://127.0.0.1:3001;
+/etc/nginx/sites-enabled/kalvicore.automystics.tech.conf:42:    proxy_pass_request_headers on;
+/etc/nginx/sites-enabled/kuralai.automystics.tech.conf:34:    proxy_pass http://127.0.0.1:3000;
+/etc/nginx/sites-enabled/kuralai.automystics.tech.conf:51:    proxy_pass http://127.0.0.1:3000;
+/etc/nginx/sites-enabled/kuralai.automystics.tech.conf:68:    proxy_pass http://127.0.0.1:3000/;
+/etc/nginx/sites-enabled/kuralai.automystics.tech.conf:78:    proxy_pass_request_headers on;
+/etc/nginx/sites-enabled/ctr.tamilagavetrikalagam.com.conf:18:        proxy_pass http://localhost:2500;
+/etc/nginx/sites-enabled/ctr.tamilagavetrikalagam.com.conf:27:        proxy_pass http://localhost:2500;
+/etc/nginx/sites-enabled/erp.automystics.tech.conf:39:    proxy_pass http://127.0.0.1:3051;
+/etc/nginx/sites-enabled/mysticscivil.automystics.tech.conf:33:    proxy_pass http://127.0.0.1:3050;
+/etc/nginx/sites-enabled/erp.mmwear.in.conf:35:    proxy_pass http://127.0.0.1:7501;
+/etc/nginx/sites-enabled/erp.mmwear.in.conf:45:    proxy_pass_request_headers on;
+root@srv1609330:/home/automystics-docscan/app# 
