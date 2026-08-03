@@ -1,141 +1,133 @@
 #!/usr/bin/env node
 /**
- * DocScan Windows Bridge  v1.0
- * ─────────────────────────────────────────────────────────────────────────────
- * Watches a local folder on this Windows PC and automatically uploads every
- * new scan to your DocScan server. Requires Node.js 18 or later.
+ * DocScan Windows Bridge v1.0
  *
- * SETUP
- *   1. Edit the CONFIG section below.
- *   2. Run once to test:   node scanner-bridge.mjs
- *   3. To auto-start on login, create a shortcut to this script and place it in:
- *      C:\Users\<you>\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Startup
+ * Runs on the Windows PC where the HP scanner saves files.
+ * Every new file that appears in WATCH_FOLDER is automatically POSTed
+ * to the DocScan server — no browser, no manual upload needed.
  *
- * The script keeps a local file (.sent-files.json) so it never uploads the
- * same file twice, even after a restart.
+ * Requirements : Node.js 18 or newer (https://nodejs.org)
+ * Usage        : node scanner-bridge.mjs
+ * Run on boot  : Add to Task Scheduler or run as a Windows Service via NSSM
  */
+
+// ── CONFIGURATION — filled in automatically when downloaded from Settings ─────
+const WATCH_FOLDER = "C:\\Users\\dsiva\\Downloads\\Step 2";
+const SERVER_URL   = "https://docscan.automystics.tech";
+const SCANNER_KEY  = "YOUR_SCANNER_API_KEY";
+// ─────────────────────────────────────────────────────────────────────────────
 
 import fs   from "fs";
 import path from "path";
 
-// ── CONFIG ────────────────────────────────────────────────────────────────────
-const API_URL   = "https://docscan.automystics.tech"; // no trailing slash
-const USERNAME  = "admin";                             // DocScan login email
-const PASSWORD  = "";                                  // DocScan password
-const WATCH_DIR = "C:\\Users\\dsiva\\Downloads\\Step 2";
-const POLL_MS   = 3_000;                               // check every 3 seconds
-// ─────────────────────────────────────────────────────────────────────────────
+const ENDPOINT  = `${SERVER_URL}/api/scanner/receive`;
+const SCAN_EXTS = new Set([".pdf", ".jpg", ".jpeg", ".png", ".tif", ".tiff"]);
+const POLL_MS   = 5_000;   // poll every 5 seconds
+const SETTLE_MS = 2_500;   // wait for file to finish writing before sending
 
-const SCAN_EXTS  = new Set([".pdf", ".jpg", ".jpeg", ".png", ".tif", ".tiff"]);
-const SENT_STORE = path.join(import.meta.dirname, ".sent-files.json");
+const seen = new Set();
+let sendQueue = Promise.resolve();
 
-// ── persistent sent-file tracking ────────────────────────────────────────────
-function loadSent() {
-  try { return new Set(JSON.parse(fs.readFileSync(SENT_STORE, "utf8"))); }
-  catch { return new Set(); }
-}
-function saveSent(s) {
-  fs.writeFileSync(SENT_STORE, JSON.stringify([...s].slice(-2000)));
+// ── helpers ───────────────────────────────────────────────────────────────────
+
+function log(msg) {
+  const ts = new Date().toLocaleTimeString();
+  console.log(`[${ts}] ${msg}`);
 }
 
-// ── auth token (auto-refreshed) ───────────────────────────────────────────────
-let token       = null;
-let tokenExpiry = 0;
-
-async function getToken() {
-  if (token && Date.now() < tokenExpiry) return token;
-  const r = await fetch(`${API_URL}/api/auth/login`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email: USERNAME, password: PASSWORD }),
-  });
-  if (!r.ok) throw new Error(`Login failed: ${r.status} ${await r.text()}`);
-  const data = await r.json();
-  token       = data.token;
-  tokenExpiry = Date.now() + 23 * 60 * 60 * 1000; // re-login after 23 h
-  return token;
+function sleep(ms) {
+  return new Promise(r => setTimeout(r, ms));
 }
 
-// ── upload one file ───────────────────────────────────────────────────────────
-async function uploadFile(filePath) {
-  const tok  = await getToken();
-  const name = path.basename(filePath);
-  const blob = new Blob([fs.readFileSync(filePath)]);
+// ── send one file ─────────────────────────────────────────────────────────────
 
-  const form = new FormData();
-  form.append("file", blob, name);
+async function sendFile(filePath, fileName) {
+  const ext = path.extname(fileName).toLowerCase();
+  if (!SCAN_EXTS.has(ext)) return; // ignore .tmp, .db, etc.
 
-  const r = await fetch(`${API_URL}/api/documents/upload`, {
-    method: "POST",
-    headers: {
-      Authorization:   `Bearer ${tok}`,
-      "x-source":      "scanner",
-      "x-source-path": filePath,
-    },
-    body: form,
-  });
-  if (!r.ok) throw new Error(`Upload failed: ${r.status} ${await r.text()}`);
-  const doc = await r.json();
-  console.log(`[${now()}] ✅ Uploaded: ${name} → doc #${doc.id}`);
+  log(`New file detected: ${fileName} — waiting for write to complete…`);
+  await sleep(SETTLE_MS);
+
+  // Check file is still there and non-empty
+  let stat;
+  try { stat = fs.statSync(filePath); } catch { log(`  Skipped (file gone): ${fileName}`); return; }
+  if (stat.size === 0)                 { log(`  Skipped (empty): ${fileName}`); return; }
+
+  log(`Sending ${fileName} (${(stat.size / 1024).toFixed(1)} KB) → ${SERVER_URL} …`);
+
+  try {
+    const fileBuffer = fs.readFileSync(filePath);
+    const blob       = new Blob([fileBuffer]);
+    const form       = new FormData();
+    form.append("file", blob, fileName);
+
+    const res = await fetch(ENDPOINT, {
+      method:  "POST",
+      headers: { "x-scanner-key": SCANNER_KEY },
+      body:    form,
+    });
+
+    const body = await res.text();
+    if (res.ok) {
+      let docId = "?";
+      try { docId = JSON.parse(body).docId; } catch {}
+      log(`✓ Sent: ${fileName} → Doc #${docId}`);
+    } else if (res.status === 401) {
+      log(`✗ Auth failed — check SCANNER_KEY in this script matches Admin → Settings → Scanner`);
+    } else {
+      log(`✗ Server error ${res.status}: ${body.slice(0, 200)}`);
+    }
+  } catch (err) {
+    log(`✗ Network error sending ${fileName}: ${err.message}`);
+    log(`  Is the server reachable? URL: ${ENDPOINT}`);
+  }
 }
 
-// ── poll loop ─────────────────────────────────────────────────────────────────
-const sentFiles = loadSent();
+// ── polling loop ──────────────────────────────────────────────────────────────
 
-async function poll() {
-  if (!fs.existsSync(WATCH_DIR)) {
-    console.warn(`[${now()}] ⚠  Watch folder not found: ${WATCH_DIR}`);
+function poll() {
+  let entries;
+  try {
+    entries = fs.readdirSync(WATCH_FOLDER);
+  } catch (err) {
+    log(`Cannot read watch folder: ${err.message}`);
     return;
   }
 
-  let entries;
-  try { entries = fs.readdirSync(WATCH_DIR); }
-  catch (e) { console.error(`[${now()}] ❌ Cannot read folder:`, e.message); return; }
-
-  for (const name of entries) {
-    const ext = path.extname(name).toLowerCase();
-    if (!SCAN_EXTS.has(ext)) continue;
-
-    const key      = `${name}::${WATCH_DIR}`;
-    const filePath = path.join(WATCH_DIR, name);
-    if (sentFiles.has(key)) continue;
-
-    // Wait for file to finish writing
-    let size1, size2;
-    try {
-      size1 = fs.statSync(filePath).size;
-      await sleep(1500);
-      size2 = fs.statSync(filePath).size;
-    } catch { continue; }
-
-    if (size1 !== size2 || size1 === 0) continue; // still writing
-
-    console.log(`[${now()}] 📄 New scan detected: ${name}`);
-    try {
-      await uploadFile(filePath);
-      sentFiles.add(key);
-      saveSent(sentFiles);
-    } catch (e) {
-      console.error(`[${now()}] ❌ Upload error:`, e.message);
-    }
+  for (const fileName of entries) {
+    if (seen.has(fileName)) continue;
+    seen.add(fileName);
+    const filePath = path.join(WATCH_FOLDER, fileName);
+    // Chain sends so multiple files don't race each other
+    sendQueue = sendQueue.then(() => sendFile(filePath, fileName)).catch(console.error);
   }
 }
 
-function sleep(ms) { return new Promise((r) => setTimeout(r, ms)); }
-function now()     { return new Date().toLocaleTimeString(); }
-
 // ── startup ───────────────────────────────────────────────────────────────────
-console.log("DocScan Windows Bridge started");
-console.log(`  Server   : ${API_URL}`);
-console.log(`  Folder   : ${WATCH_DIR}`);
-console.log(`  Interval : ${POLL_MS / 1000}s`);
-console.log("─────────────────────────────────────────");
 
-// Verify config before first poll
-if (!PASSWORD) {
-  console.error("❌ Set PASSWORD in the CONFIG section at the top of this file.");
-  process.exit(1);
+function start() {
+  // Verify folder exists
+  if (!fs.existsSync(WATCH_FOLDER)) {
+    console.error(`\nERROR: Watch folder not found:\n  ${WATCH_FOLDER}\n`);
+    console.error(`Create the folder or update WATCH_FOLDER in this script, then restart.\n`);
+    process.exit(1);
+  }
+
+  // Pre-seed "seen" with files already in the folder so we don't re-send old scans
+  try {
+    for (const f of fs.readdirSync(WATCH_FOLDER)) seen.add(f);
+  } catch {}
+
+  console.log(`\n┌─────────────────────────────────────────┐`);
+  console.log(`│        DocScan Windows Bridge v1.0      │`);
+  console.log(`└─────────────────────────────────────────┘`);
+  console.log(`  Watch folder : ${WATCH_FOLDER}`);
+  console.log(`  Server       : ${SERVER_URL}`);
+  console.log(`  Poll interval: ${POLL_MS / 1000}s`);
+  console.log(`  Pre-loaded   : ${seen.size} existing file(s) (will not be re-sent)`);
+  console.log(`  Waiting for new scans…\n`);
+
+  setInterval(poll, POLL_MS);
 }
 
-poll().catch(console.error); // immediate first poll
-setInterval(() => poll().catch(console.error), POLL_MS);
+start();

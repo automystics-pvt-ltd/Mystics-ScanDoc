@@ -11,7 +11,7 @@ import {
   Eye, EyeOff, Copy, RotateCcw, FlaskConical, Key,
   AtSign, Globe, Bell, HardDrive, Printer, Wifi,
   WifiOff, ShieldCheck, Check, ChevronRight,
-  MessageSquare, Phone, Lock, Zap, Terminal,
+  MessageSquare, Phone, Lock, Zap, Terminal, Download, MonitorCheck,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -210,6 +210,187 @@ function KeyBadge({ saved }: { saved: boolean }) {
         <ShieldCheck className="w-2.5 h-2.5" /> Saved
       </span>
     : null;
+}
+
+// ── Windows Bridge Card ───────────────────────────────────────────────────────
+
+function WindowsBridgeCard({ watchPath }: { watchPath: string }) {
+  const [apiKey, setApiKey] = useState<string | null>(null);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    const token = localStorage.getItem('docscan_token');
+    fetch(`${import.meta.env.BASE_URL}api/admin/scanner/key`.replace(/\/+/g, '/'), {
+      headers: { Authorization: `Bearer ${token}` },
+    }).then(r => r.ok ? r.json() : null).then(d => d && setApiKey(d.scannerApiKey ?? null));
+  }, []);
+
+  const downloadScript = () => {
+    if (!apiKey) { toast({ title: 'API key not loaded yet', variant: 'destructive' }); return; }
+
+    const serverUrl = window.location.origin;
+    const folder    = watchPath || 'C:\\\\Users\\\\YourName\\\\Documents\\\\HP Scans';
+
+    const script = `#!/usr/bin/env node
+/**
+ * DocScan Windows Bridge v1.0
+ *
+ * Runs on the Windows PC where the HP scanner saves files.
+ * Every new file that appears in WATCH_FOLDER is automatically POSTed
+ * to the DocScan server — no browser, no manual upload needed.
+ *
+ * Requirements : Node.js 18 or newer (https://nodejs.org)
+ * Usage        : node scanner-bridge.mjs
+ * Run on boot  : Add to Task Scheduler or run via NSSM as a Windows Service
+ */
+
+// ── CONFIGURATION ─────────────────────────────────────────────────────────────
+const WATCH_FOLDER = ${JSON.stringify(folder.replace(/\\\\/g, '\\\\'))};
+const SERVER_URL   = ${JSON.stringify(serverUrl)};
+const SCANNER_KEY  = ${JSON.stringify(apiKey)};
+// ─────────────────────────────────────────────────────────────────────────────
+
+import fs   from "fs";
+import path from "path";
+
+const ENDPOINT  = \`\${SERVER_URL}/api/scanner/receive\`;
+const SCAN_EXTS = new Set([".pdf", ".jpg", ".jpeg", ".png", ".tif", ".tiff"]);
+const POLL_MS   = 5_000;
+const SETTLE_MS = 2_500;
+
+const seen = new Set();
+let sendQueue = Promise.resolve();
+
+function log(msg) { console.log(\`[\${new Date().toLocaleTimeString()}] \${msg}\`); }
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+async function sendFile(filePath, fileName) {
+  const ext = path.extname(fileName).toLowerCase();
+  if (!SCAN_EXTS.has(ext)) return;
+  log(\`New file: \${fileName} — waiting for write to complete…\`);
+  await sleep(SETTLE_MS);
+  let stat;
+  try { stat = fs.statSync(filePath); } catch { log(\`  Skipped (file gone): \${fileName}\`); return; }
+  if (stat.size === 0) { log(\`  Skipped (empty): \${fileName}\`); return; }
+  log(\`Sending \${fileName} (\${(stat.size/1024).toFixed(1)} KB)…\`);
+  try {
+    const form = new FormData();
+    form.append("file", new Blob([fs.readFileSync(filePath)]), fileName);
+    const res = await fetch(ENDPOINT, { method:"POST", headers:{"x-scanner-key":SCANNER_KEY}, body:form });
+    const body = await res.text();
+    if (res.ok) {
+      let docId="?"; try { docId = JSON.parse(body).docId; } catch {}
+      log(\`✓ Sent: \${fileName} → Doc #\${docId}\`);
+    } else if (res.status === 401) {
+      log(\`✗ Auth failed — regenerate the key in Admin → Settings → Scanner\`);
+    } else {
+      log(\`✗ Server error \${res.status}: \${body.slice(0,200)}\`);
+    }
+  } catch (err) { log(\`✗ Network error: \${err.message}\`); }
+}
+
+function poll() {
+  let entries;
+  try { entries = fs.readdirSync(WATCH_FOLDER); }
+  catch (err) { log(\`Cannot read folder: \${err.message}\`); return; }
+  for (const f of entries) {
+    if (seen.has(f)) continue;
+    seen.add(f);
+    sendQueue = sendQueue.then(() => sendFile(path.join(WATCH_FOLDER, f), f)).catch(console.error);
+  }
+}
+
+if (!fs.existsSync(WATCH_FOLDER)) {
+  console.error(\`\\nERROR: Watch folder not found: \${WATCH_FOLDER}\\n\`); process.exit(1);
+}
+for (const f of fs.readdirSync(WATCH_FOLDER)) seen.add(f);
+console.log(\`\\n┌──────────────────────────────────────────┐\`);
+console.log(\`│       DocScan Windows Bridge v1.0        │\`);
+console.log(\`└──────────────────────────────────────────┘\`);
+console.log(\`  Watch : \${WATCH_FOLDER}\`);
+console.log(\`  Server: \${SERVER_URL}\`);
+console.log(\`  Pre-loaded \${seen.size} existing file(s) — waiting for new scans…\\n\`);
+setInterval(poll, POLL_MS);
+`;
+
+    const blob = new Blob([script], { type: 'text/javascript' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = 'scanner-bridge.mjs';
+    a.click();
+    URL.revokeObjectURL(url);
+    toast({ title: 'Bridge script downloaded', description: 'Run it on your Windows PC with: node scanner-bridge.mjs' });
+  };
+
+  return (
+    <div className="rounded-xl border border-border overflow-hidden">
+      <div className="flex items-center gap-3 px-4 py-3 bg-blue-50 border-b border-blue-100">
+        <div className="w-7 h-7 rounded-lg bg-blue-500 flex items-center justify-center shrink-0">
+          <MonitorCheck className="w-3.5 h-3.5 text-white" />
+        </div>
+        <div>
+          <p className="text-sm font-semibold text-foreground">Windows PC Bridge</p>
+          <p className="text-xs text-muted-foreground">Runs on your Windows PC — watches the scan folder and pushes files here automatically</p>
+        </div>
+      </div>
+
+      <div className="p-4 space-y-4">
+        {/* Why it's needed */}
+        <div className="flex items-start gap-2.5 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2.5">
+          <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
+          <p className="text-[11px] text-amber-800">
+            The DocScan server runs on Linux and cannot reach a Windows local path directly.
+            This bridge script runs <strong>on your Windows PC</strong>, watches the folder, and pushes each new scan to the server over HTTPS.
+          </p>
+        </div>
+
+        {/* Download */}
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/60 mb-2">Step 1 — Download &amp; Run on Windows</p>
+          <button
+            type="button"
+            onClick={downloadScript}
+            disabled={!apiKey}
+            className="w-full flex items-center justify-center gap-2 h-9 px-4 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-medium transition-colors"
+          >
+            <Download className="w-4 h-4" />
+            Download scanner-bridge.mjs
+          </button>
+          {!watchPath && (
+            <p className="text-[11px] text-amber-700 mt-1.5">⚠ Set a Watch Folder Path above first so the script is pre-configured.</p>
+          )}
+        </div>
+
+        {/* Setup steps */}
+        <div className="rounded-lg bg-muted/50 border border-border/50 p-3">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/60 mb-2">Step 2 — Run on your Windows PC</p>
+          <ol className="space-y-1.5">
+            {[
+              'Install Node.js 18+ from nodejs.org if not already installed',
+              'Copy scanner-bridge.mjs to any folder on the Windows PC',
+              'Open a terminal (cmd or PowerShell) in that folder',
+              'Run: node scanner-bridge.mjs',
+              'Leave the terminal open — it will push every new scan automatically',
+            ].map((step, i) => (
+              <li key={i} className="flex items-start gap-2 text-[11px] text-muted-foreground">
+                <span className="shrink-0 w-4 h-4 rounded-full bg-blue-500/15 text-blue-700 text-[9px] font-bold flex items-center justify-center mt-0.5">{i + 1}</span>
+                {step}
+              </li>
+            ))}
+          </ol>
+        </div>
+
+        {/* Keep running hint */}
+        <div className="rounded-lg bg-muted/50 border border-border/50 p-3">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/60 mb-1.5">Step 3 — Keep it running on reboot (optional)</p>
+          <p className="text-[11px] text-muted-foreground">
+            Open <strong>Task Scheduler</strong> → Create Basic Task → trigger: <em>At log on</em> → action: <code className="bg-muted px-1 rounded font-mono">node C:\path\to\scanner-bridge.mjs</code>
+          </p>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 // ── Scanner Scan-to-URL ───────────────────────────────────────────────────────
@@ -872,10 +1053,10 @@ export default function Settings() {
                   <div>
                     <SHead>Folder & Dispatch</SHead>
 
-                    <Field label="Watch folder path" hint="Type the full path to the folder where the HP scanner saves files.">
+                    <Field label="Watch folder path" hint="Windows path on the PC where the HP scanner saves files — used by the bridge script below.">
                       <FormField control={form.control} name="scannerWatchPath" render={({ field }) => (
                         <Input
-                          placeholder="e.g. C:\Users\Name\Documents\HP Scans"
+                          placeholder="e.g. C:\Users\Name\Downloads\Step 2"
                           className="h-9 text-sm font-mono"
                           {...field}
                         />
@@ -903,6 +1084,10 @@ export default function Settings() {
                       )} />
                     </Field>
                   </div>
+
+                  <WindowsBridgeCard watchPath={form.watch('scannerWatchPath') ?? ''} />
+
+                  <ScanToUrlCard />
                 </div>
               )}
             </div>
