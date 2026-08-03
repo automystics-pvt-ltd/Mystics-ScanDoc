@@ -13,7 +13,7 @@
  */
 
 import { Router, type IRouter } from "express";
-import { and, desc, eq, gte, lte, sql, count } from "drizzle-orm";
+import { and, desc, eq, gte, lte, sql } from "drizzle-orm";
 import { db, documentsTable, emailLogsTable } from "@workspace/db";
 import { requireAuth } from "../middlewares/auth";
 
@@ -26,8 +26,8 @@ router.get("/scanner/documents", requireAuth, async (req, res): Promise<void> =>
   const fromDate = req.query.from ? new Date(String(req.query.from)) : null;
   const toDate   = req.query.to   ? new Date(String(req.query.to))   : null;
 
-  // ── date filter conditions (no source filter — show ALL documents) ──────────
-  const conditions: any[] = [];
+  // ── filter: scanner-sourced docs only + optional date range ─────────────────
+  const conditions: any[] = [eq(documentsTable.source, "scanner")];
   if (fromDate && !isNaN(fromDate.getTime())) {
     conditions.push(gte(documentsTable.uploadedAt, fromDate));
   }
@@ -37,7 +37,7 @@ router.get("/scanner/documents", requireAuth, async (req, res): Promise<void> =>
     conditions.push(lte(documentsTable.uploadedAt, endOfDay));
   }
 
-  const where = conditions.length > 0 ? and(...conditions) : undefined;
+  const where = and(...conditions);
 
   // ── fetch all matching scanner docs ───────────────────────────────────────
   // We'll compute dispatch status in JS because SQLite-style CASE over grouped

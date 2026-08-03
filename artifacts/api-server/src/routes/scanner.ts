@@ -17,6 +17,7 @@ import { requireAuth, requireAdmin } from "../middlewares/auth";
 import { logger } from "../lib/logger";
 import { scannerBus } from "../lib/scanner-events";
 import { getWatcherStatus } from "../lib/scanner-watcher";
+import { dispatchDocument } from "../lib/dispatch-document";
 
 const router: IRouter = Router();
 
@@ -99,6 +100,7 @@ router.post(
       filePath: req.file.path,
       fileType: req.file.mimetype,
       fileSize: req.file.size,
+      source: "scanner",
     }).returning();
 
     await db.insert(auditLogsTable).values({
@@ -112,7 +114,16 @@ router.post(
     scannerBus.emit("scan", { docId: doc.id, fileName: doc.fileName });
 
     logger.info({ docId: doc.id, fileName: doc.fileName }, "Scanner: document received");
-    res.status(201).json({ success: true, docId: doc.id, fileName: doc.fileName });
+
+    // Auto-dispatch if the setting is enabled (fire-and-forget — don't block the 201 response)
+    const [settings] = await db.select({ scannerAutoDispatch: settingsTable.scannerAutoDispatch }).from(settingsTable).limit(1);
+    if (settings?.scannerAutoDispatch) {
+      dispatchDocument(doc.id, admin.id, req.ip ?? "127.0.0.1").catch((err) =>
+        logger.error({ err, docId: doc.id }, "Scanner: auto-dispatch failed"),
+      );
+    }
+
+    res.status(201).json({ success: true, docId: doc.id, fileName: doc.fileName, autoDispatched: !!settings?.scannerAutoDispatch });
   }
 );
 

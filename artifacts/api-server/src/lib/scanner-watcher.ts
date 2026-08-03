@@ -178,7 +178,7 @@ async function autoDispatch(
     )
   );
 
-  const batchResults = await sendEmailBatch(
+  const { results: batchResults } = await sendEmailBatch(
     recipients.map((r) => ({
       from: fromAddress,
       to: r.email,

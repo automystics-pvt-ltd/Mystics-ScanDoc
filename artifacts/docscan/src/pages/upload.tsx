@@ -176,6 +176,7 @@ export default function Upload() {
   const [dateRange,    setDateRange]    = useState<DateRange>('all');
   const [search,       setSearch]       = useState('');
   const [watchPath,      setWatchPath]      = useState('');
+  const [autoDispatch,   setAutoDispatch]   = useState(false);
   const [lastRefresh,    setLastRefresh]    = useState<Date | null>(null);
   const [watcherStatus,  setWatcherStatus]  = useState<WatcherStatus | null>(null);
 
@@ -239,6 +240,7 @@ export default function Upload() {
       if (cfgRes.ok) {
         const d = await cfgRes.json();
         if (d?.scannerWatchPath) setWatchPath(d.scannerWatchPath);
+        setAutoDispatch(!!d?.scannerAutoDispatch);
       }
       if (statusRes.ok) setWatcherStatus(await statusRes.json());
     } catch {}
@@ -455,9 +457,14 @@ export default function Upload() {
                         {doc._dispatching && (
                           <Loader2 className="w-4 h-4 animate-spin text-primary inline-block" />
                         )}
-                        {!doc._dispatching && doc.dispatchStatus === 'queued' && (
+                        {!doc._dispatching && doc.dispatchStatus === 'queued' && autoDispatch && (
+                          <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                            <Loader2 className="w-3 h-3 animate-spin" /> Auto-sending…
+                          </span>
+                        )}
+                        {!doc._dispatching && doc.dispatchStatus === 'queued' && !autoDispatch && (
                           <Button size="sm" className="h-7 text-xs gap-1" onClick={() => dispatch(doc)}>
-                            <Send className="w-3 h-3" /> Dispatch
+                            <Send className="w-3 h-3" /> Send
                           </Button>
                         )}
                         {!doc._dispatching && doc.dispatchStatus === 'failed' && (
